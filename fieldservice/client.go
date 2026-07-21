@@ -1,0 +1,224 @@
+package fieldservice
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/plansolve/go/solver"
+)
+
+const routeFieldServiceSolve = "/api/v1/solvers/fieldservice/solve"
+
+// Client is the field service API client.
+type Client struct {
+	httpClient *http.Client
+	baseURL    string
+	apiKey     string
+}
+
+// NewClient creates a new field service API client.
+func NewClient(httpClient *http.Client, baseURL, apiKey string) *Client {
+	return &Client{
+		httpClient: httpClient,
+		baseURL:    baseURL,
+		apiKey:     apiKey,
+	}
+}
+
+// Start starts a new field service optimization job.
+func (c *Client) Start(ctx context.Context, request FieldServiceRequest) (*FieldServiceStartResponse, error) {
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := c.baseURL + routeFieldServiceSolve
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result FieldServiceStartResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetStatus gets the status of a field service optimization job.
+func (c *Client) GetStatus(ctx context.Context, jobID string) (*solver.SolverStatusResponse, error) {
+	url := fmt.Sprintf("%s%s/%s/status", c.baseURL, routeFieldServiceSolve, jobID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result solver.SolverStatusResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetResult gets the result of a completed field service optimization job.
+func (c *Client) GetResult(ctx context.Context, jobID string) (*FieldServiceResultResponse, error) {
+	url := fmt.Sprintf("%s%s/%s", c.baseURL, routeFieldServiceSolve, jobID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result FieldServiceResultResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	result.JobID = jobID
+	return &result, nil
+}
+
+// Analyze gets analysis for a completed field service optimization job.
+func (c *Client) Analyze(ctx context.Context, jobID string) (map[string]interface{}, error) {
+	url := fmt.Sprintf("%s%s/%s/analyze", c.baseURL, routeFieldServiceSolve, jobID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return result, nil
+}
+
+// StartAndWaitForCompletion starts a job and polls until it completes.
+func (c *Client) StartAndWaitForCompletion(ctx context.Context, request FieldServiceRequest, pollIntervalMs int, maxAttempts int) (*FieldServiceResultResponse, error) {
+	if pollIntervalMs <= 0 {
+		pollIntervalMs = 5000
+	}
+	if maxAttempts <= 0 {
+		maxAttempts = 10
+	}
+
+	startResp, err := c.Start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.WaitForCompletion(ctx, startResp.JobID, pollIntervalMs, maxAttempts)
+}
+
+// WaitForCompletion polls for job status until the solver finishes or max attempts is reached.
+func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollIntervalMs int, maxAttempts int) (*FieldServiceResultResponse, error) {
+	if jobID == "" {
+		return nil, fmt.Errorf("jobId was not provided")
+	}
+	if pollIntervalMs <= 0 {
+		pollIntervalMs = 5000
+	}
+	if maxAttempts <= 0 {
+		maxAttempts = 10
+	}
+
+	pollInterval := time.Duration(pollIntervalMs) * time.Millisecond
+	attempts := 0
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(pollInterval):
+		}
+
+		status, err := c.GetStatus(ctx, jobID)
+		if err != nil {
+			return nil, err
+		}
+		attempts++
+
+		if !isStillSolving(status) || attempts >= maxAttempts {
+			if isStillSolving(status) {
+				return nil, fmt.Errorf("solver did not finish in the allotted time")
+			}
+			return c.GetResult(ctx, jobID)
+		}
+	}
+}
+
+func isStillSolving(status *solver.SolverStatusResponse) bool {
+	return status.Solving ||
+		status.SolverStatus == solver.SolverStatusSolvingScheduled ||
+		status.SolverStatus != solver.SolverStatusNotSolving ||
+		status.Score == ""
+}
