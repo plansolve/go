@@ -98,13 +98,21 @@ type ScheduledVisit struct {
 	Name                                     string       `json:"name"`
 	Location                                 [2]float64   `json:"location"`
 	TimeWindows                              []TimeWindow `json:"timeWindows"`
-	ServiceDuration                          string       `json:"serviceDuration"`
+	// ServiceDuration is the service duration in seconds. The field-service solver
+	// serializes a Java Duration in the RESULT as a number of seconds (e.g. 3600.0),
+	// so this is a float64 — unlike the request Visit.ServiceDuration which is an
+	// ISO-8601 string input like "PT1H".
+	ServiceDuration                          float64      `json:"serviceDuration"`
 	Priority                                 string       `json:"priority"`
 	RequiredSkills                           []string     `json:"requiredSkills"`
 	Vehicle                                  string       `json:"vehicle"`
 	PreviousVisit                            *string      `json:"previousVisit"`
+	PreviousVisitSameDay                     *string      `json:"previousVisitSameDay,omitempty"`
 	ArrivalTime                              string       `json:"arrivalTime"`
-	DepartureTime                            string       `json:"departureTime"`
+	MinStartTime                             *string      `json:"minStartTime,omitempty"`
+	MaxEndTime                               *string      `json:"maxEndTime,omitempty"`
 	StartServiceTime                         string       `json:"startServiceTime"`
+	DepartureTime                            string       `json:"departureTime"`
+	IsDayHead                                *bool        `json:"isDayHead,omitempty"`
 	DrivingTimeSecondsFromPreviousStandstill int          `json:"drivingTimeSecondsFromPreviousStandstill"`
 }

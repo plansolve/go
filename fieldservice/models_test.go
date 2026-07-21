@@ -80,14 +80,17 @@ func TestCanDeserializeFieldServiceResultResponse(t *testing.T) {
 				"name": "Task 1",
 				"location": [51.51, -0.12],
 				"timeWindows": [],
-				"serviceDuration": "PT30M",
+				"serviceDuration": 3600.0,
 				"priority": "HIGH",
 				"requiredSkills": ["English"],
 				"vehicle": "1",
 				"previousVisit": null,
 				"arrivalTime": "2024-01-15T10:15:33",
+				"minStartTime": "2024-01-15T09:00:00",
+				"maxEndTime": "2024-01-15T12:00:00",
 				"departureTime": "2024-01-15T10:45:33",
 				"startServiceTime": "2024-01-15T10:15:33",
+				"isDayHead": true,
 				"drivingTimeSecondsFromPreviousStandstill": 933
 			}
 		]
@@ -118,5 +121,17 @@ func TestCanDeserializeFieldServiceResultResponse(t *testing.T) {
 	}
 	if result.Visits[0].DrivingTimeSecondsFromPreviousStandstill != 933 {
 		t.Errorf("expected drivingTimeSecondsFromPreviousStandstill 933, got %d", result.Visits[0].DrivingTimeSecondsFromPreviousStandstill)
+	}
+	if result.Visits[0].ServiceDuration != 3600.0 {
+		t.Errorf("expected serviceDuration 3600.0, got %v", result.Visits[0].ServiceDuration)
+	}
+	if result.Visits[0].IsDayHead == nil || *result.Visits[0].IsDayHead != true {
+		t.Errorf("expected isDayHead true, got %v", result.Visits[0].IsDayHead)
+	}
+	if result.Visits[0].MinStartTime == nil || *result.Visits[0].MinStartTime != "2024-01-15T09:00:00" {
+		t.Errorf("expected minStartTime '2024-01-15T09:00:00', got %v", result.Visits[0].MinStartTime)
+	}
+	if result.Visits[0].MaxEndTime == nil || *result.Visits[0].MaxEndTime != "2024-01-15T12:00:00" {
+		t.Errorf("expected maxEndTime '2024-01-15T12:00:00', got %v", result.Visits[0].MaxEndTime)
 	}
 }
