@@ -4,8 +4,12 @@ package fieldservice
 type FieldServiceRequest struct {
 	Vehicles []Vehicle      `json:"vehicles"`
 	Visits   []Visit        `json:"visits"`
-	Weights  *Weights       `json:"weights,omitempty"`
-	Options  *SolverOptions `json:"options,omitempty"`
+	// Weights maps a constraint name to a score-notation string, e.g.
+	// {"minimizeTravelTime": "0hard/0medium/1soft"}. The server models this as an
+	// open map (additionalProperties: string), so any constraint key and score
+	// string passes through unchanged — do not narrow it to a fixed struct.
+	Weights map[string]string `json:"weights,omitempty"`
+	Options *SolverOptions    `json:"options,omitempty"`
 }
 
 // Vehicle represents a vehicle in the field service optimization.
@@ -47,29 +51,6 @@ type Shift struct {
 type TimeWindow struct {
 	MinStartTime string `json:"minStartTime"`
 	MaxEndTime   string `json:"maxEndTime"`
-}
-
-// Weights contains configuration weights for field service optimization constraints.
-type Weights struct {
-	PinnedVisitVehicleAssignment  *ConstraintWeight `json:"pinnedVisitVehicleAssignment,omitempty"`
-	PinnedVisitServiceTime        *ConstraintWeight `json:"pinnedVisitServiceTime,omitempty"`
-	NoMissingSkills               *ConstraintWeight `json:"noMissingSkills,omitempty"`
-	ServiceTimeMissing            *ConstraintWeight `json:"serviceTimeMissing,omitempty"`
-	VehicleUnassigned             *ConstraintWeight `json:"vehicleUnassigned,omitempty"`
-	PreferHighPriority            *ConstraintWeight `json:"preferHighPriority,omitempty"`
-	MinimizeTravelTime            *ConstraintWeight `json:"minimizeTravelTime,omitempty"`
-	PreferUsingIdleVehicles       *ConstraintWeight `json:"preferUsingIdleVehicles,omitempty"`
-	MinimizeEarlyArrivalWait      *ConstraintWeight `json:"minimizeEarlyArrivalWait,omitempty"`
-	PreferInitialVehicleAssignment *ConstraintWeight `json:"preferInitialVehicleAssignment,omitempty"`
-	PreferEarlierVisitDates       *ConstraintWeight `json:"PreferEarlierVisitDates,omitempty"`
-}
-
-// ConstraintWeight represents a constraint weight in the format "Xhard/Ymedium/Zsoft".
-// Only one of Hard, Medium, or Soft can be non-zero at a time.
-type ConstraintWeight struct {
-	Hard   int `json:"hard"`
-	Medium int `json:"medium"`
-	Soft   int `json:"soft"`
 }
 
 // SolverOptions contains solver configuration options.

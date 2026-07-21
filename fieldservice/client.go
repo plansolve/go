@@ -168,7 +168,7 @@ func (c *Client) StartAndWaitForCompletion(ctx context.Context, request FieldSer
 		pollIntervalMs = 5000
 	}
 	if maxAttempts <= 0 {
-		maxAttempts = 10
+		maxAttempts = 60
 	}
 
 	startResp, err := c.Start(ctx, request)
@@ -188,7 +188,7 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 		pollIntervalMs = 5000
 	}
 	if maxAttempts <= 0 {
-		maxAttempts = 10
+		maxAttempts = 60
 	}
 
 	pollInterval := time.Duration(pollIntervalMs) * time.Millisecond
@@ -209,7 +209,7 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 
 		if !isStillSolving(status) || attempts >= maxAttempts {
 			if isStillSolving(status) {
-				return nil, fmt.Errorf("solver did not finish in the allotted time")
+				return nil, fmt.Errorf("solver still running after the client's poll budget elapsed (maxAttempts*pollInterval); increase maxAttempts/pollInterval, or set options.spentLimit in the request so the solver stops on its own")
 			}
 			return c.GetResult(ctx, jobID)
 		}
