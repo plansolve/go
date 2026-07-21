@@ -56,7 +56,7 @@ func (c *Client) Start(ctx context.Context, request FieldServiceRequest) (*Field
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
 	}
 
 	var result FieldServiceStartResponse
@@ -87,7 +87,7 @@ func (c *Client) GetStatus(ctx context.Context, jobID string) (*solver.SolverSta
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
 	}
 
 	var result solver.SolverStatusResponse
@@ -119,7 +119,7 @@ func (c *Client) GetResult(ctx context.Context, jobID string) (*FieldServiceResu
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
 	}
 
 	var result FieldServiceResultResponse
@@ -151,7 +151,7 @@ func (c *Client) Analyze(ctx context.Context, jobID string) (map[string]interfac
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
 	}
 
 	var result map[string]interface{}
