@@ -184,29 +184,11 @@ type ShiftStartResponse struct {
 
 // ShiftResultResponse is the response from getting shift optimization results.
 type ShiftResultResponse struct {
-	Employees []ScheduledEmployee `json:"employees"`
-	Tasks     []ScheduledTask     `json:"tasks"`
-	Score     *string             `json:"score,omitempty"`
-	Weights   map[string]string   `json:"weights,omitempty"`
-}
-
-// ScheduledEmployee represents an employee in the optimization result.
-type ScheduledEmployee struct {
-	ID     string   `json:"id"`
-	Shifts []Shift  `json:"shifts"`
-	Skills []string `json:"skills"`
-	Tasks  []string `json:"tasks"`
-}
-
-// ScheduledTask represents a task in the optimization result.
-type ScheduledTask struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	Employee       *string  `json:"employee,omitempty"`
-	StartTime      *string  `json:"startTime,omitempty"`
-	EndTime        *string  `json:"endTime,omitempty"`
-	Duration       float64  `json:"duration"`
-	Priority       string   `json:"priority"`
-	RequiredSkills []string `json:"requiredSkills"`
-	Deadline       *string  `json:"deadline,omitempty"`
+	JobID            string                 `json:"jobId"`
+	Feasible         *bool                  `json:"feasible,omitempty"`
+	ScoreString      *string                `json:"scoreString,omitempty"`
+	Score            map[string]interface{} `json:"score,omitempty"`
+	AssignedShifts   []ShiftAssignment      `json:"assignedShifts"`
+	UnassignedShifts []ShiftAssignment      `json:"unassignedShifts"`
+	Employees        []ShiftEmployee        `json:"employees"`
 }

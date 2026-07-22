@@ -559,3 +559,91 @@ func TestCanDeserializeShiftRequestFromJSON(t *testing.T) {
 		t.Errorf("expected avoidShiftCloseToDayOff 3, got %d", result.Weights.AvoidShiftCloseToDayOff)
 	}
 }
+
+func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
+	jsonStr := `{
+		"feasible": true,
+		"scoreString": "0hard/-120soft",
+		"score": {"hardScore": 0, "softScore": -120},
+		"assignedShifts": [
+			{
+				"name": "Morning",
+				"from": "2024-01-15T06:00:00",
+				"to": "2024-01-15T14:00:00",
+				"skills": ["Nursing"],
+				"desiredSkills": ["Pediatrics"],
+				"tags": ["early"],
+				"cost": 150.0,
+				"value": 10,
+				"priority": 1,
+				"pinnedByUser": false
+			}
+		],
+		"unassignedShifts": [
+			{
+				"name": "Night",
+				"from": "2024-01-15T22:00:00",
+				"to": "2024-01-16T06:00:00",
+				"cost": 200.0,
+				"value": 5,
+				"priority": 2,
+				"pinnedByUser": false
+			}
+		],
+		"employees": [
+			{
+				"name": "Alice",
+				"contract": "full-time",
+				"skills": ["Nursing", "Pediatrics"],
+				"shifts": [
+					{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00"}
+				]
+			}
+		]
+	}`
+
+	var result ShiftResultResponse
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if result.Feasible == nil || !*result.Feasible {
+		t.Errorf("expected feasible to be true")
+	}
+	if result.ScoreString == nil || *result.ScoreString != "0hard/-120soft" {
+		t.Errorf("expected scoreString '0hard/-120soft', got '%v'", result.ScoreString)
+	}
+	if result.Score["hardScore"] != float64(0) {
+		t.Errorf("expected score.hardScore 0, got %v", result.Score["hardScore"])
+	}
+
+	if len(result.AssignedShifts) != 1 {
+		t.Fatalf("expected 1 assigned shift, got %d", len(result.AssignedShifts))
+	}
+	if *result.AssignedShifts[0].Name != "Morning" {
+		t.Errorf("expected assigned shift name 'Morning', got '%s'", *result.AssignedShifts[0].Name)
+	}
+	if *result.AssignedShifts[0].From != "2024-01-15T06:00:00" {
+		t.Errorf("expected assigned shift from '2024-01-15T06:00:00', got '%s'", *result.AssignedShifts[0].From)
+	}
+	if result.AssignedShifts[0].Cost != 150.0 {
+		t.Errorf("expected assigned shift cost 150.0, got %f", result.AssignedShifts[0].Cost)
+	}
+
+	if len(result.UnassignedShifts) != 1 {
+		t.Fatalf("expected 1 unassigned shift, got %d", len(result.UnassignedShifts))
+	}
+	if *result.UnassignedShifts[0].Name != "Night" {
+		t.Errorf("expected unassigned shift name 'Night', got '%s'", *result.UnassignedShifts[0].Name)
+	}
+
+	if len(result.Employees) != 1 {
+		t.Fatalf("expected 1 employee, got %d", len(result.Employees))
+	}
+	if *result.Employees[0].Name != "Alice" {
+		t.Errorf("expected employee name 'Alice', got '%s'", *result.Employees[0].Name)
+	}
+	if len(result.Employees[0].Shifts) != 1 {
+		t.Errorf("expected 1 employee shift, got %d", len(result.Employees[0].Shifts))
+	}
+}

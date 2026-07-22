@@ -127,6 +127,7 @@ func (c *Client) GetResult(ctx context.Context, jobID string) (*ShiftResultRespo
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	result.JobID = jobID
 	return &result, nil
 }
 
