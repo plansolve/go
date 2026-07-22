@@ -15,9 +15,6 @@ type ShiftRequest struct {
 	ShiftOffRequests        []ShiftOffRequest         `json:"shiftOffRequests,omitempty"`
 	Hook                    *string                  `json:"hook,omitempty"`
 	ConstraintWeightOverrides *ConstraintWeightOverrides `json:"constraintWeightOverrides,omitempty"`
-	Score                   map[string]interface{}   `json:"score,omitempty"`
-	UnassignedShifts        []ShiftAssignment         `json:"unassignedShifts,omitempty"`
-	AssignedShifts          []ShiftAssignment         `json:"assignedShifts,omitempty"`
 }
 
 // Shift represents a time window for shift scheduling.
@@ -183,12 +180,27 @@ type ShiftStartResponse struct {
 }
 
 // ShiftResultResponse is the response from getting shift optimization results.
+// It corresponds to the API's ShiftAssignmentResponse: a full echo of the
+// request PLUS the result fields (feasible, scoreString, score,
+// unassignedShifts, assignedShifts). It carries no jobId.
 type ShiftResultResponse struct {
-	JobID            string                 `json:"jobId"`
-	Feasible         *bool                  `json:"feasible,omitempty"`
-	ScoreString      *string                `json:"scoreString,omitempty"`
-	Score            map[string]interface{} `json:"score,omitempty"`
-	AssignedShifts   []ShiftAssignment      `json:"assignedShifts"`
-	UnassignedShifts []ShiftAssignment      `json:"unassignedShifts"`
-	Employees        []ShiftEmployee        `json:"employees"`
+	JobID                     *string                    `json:"jobId,omitempty"`
+	ID                        *string                    `json:"id,omitempty"`
+	Name                      *string                    `json:"name,omitempty"`
+	Description               *string                    `json:"description,omitempty"`
+	Contracts                 []Contract                 `json:"contracts,omitempty"`
+	Shifts                    []ShiftAssignment          `json:"shifts,omitempty"`
+	Employees                 []ShiftEmployee            `json:"employees,omitempty"`
+	DayOffRequests            []DayOffRequest            `json:"dayOffRequests,omitempty"`
+	ShiftOffRequests          []ShiftOffRequest          `json:"shiftOffRequests,omitempty"`
+	Options                   *Options                   `json:"options,omitempty"`
+	Weights                   *Weights                   `json:"weights,omitempty"`
+	Fairness                  *Fairness                  `json:"fairness,omitempty"`
+	Hook                      *string                    `json:"hook,omitempty"`
+	ConstraintWeightOverrides *ConstraintWeightOverrides `json:"constraintWeightOverrides,omitempty"`
+	Feasible                  *bool                      `json:"feasible,omitempty"`
+	ScoreString               *string                    `json:"scoreString,omitempty"`
+	Score                     map[string]interface{}     `json:"score,omitempty"`
+	UnassignedShifts          []ShiftAssignment          `json:"unassignedShifts,omitempty"`
+	AssignedShifts            []ShiftAssignment          `json:"assignedShifts,omitempty"`
 }

@@ -61,17 +61,27 @@ type SolverOptions struct {
 	UnimprovedSpentLimit *string `json:"unimprovedSpentLimit,omitempty"`
 }
 
-// FieldServiceStartResponse is the response from starting a field service optimization.
+// FieldServiceStartResponse is the response from starting a field service
+// optimization. It mirrors the API's SolverJobResponse shape.
 type FieldServiceStartResponse struct {
-	JobID      string  `json:"jobId"`
-	Result     *string `json:"result,omitempty"`
-	Error      *string `json:"error,omitempty"`
-	StatusCode int     `json:"statusCode,omitempty"`
+	JobID       string  `json:"jobId"`
+	SolverJobID *string `json:"solverJobId,omitempty"`
+	Result      *string `json:"result,omitempty"`
+	Error       *string `json:"error,omitempty"`
 }
+
+// Spec-name aliases. The API contract names the result model FieldServiceSolution
+// and its sub-types ExtendedVehicle / ExtendedVisit; the SDK keeps its idiomatic
+// names but exposes the spec names as aliases for discoverability.
+type (
+	FieldServiceSolution = FieldServiceResultResponse
+	ExtendedVehicle      = ScheduledVehicle
+	ExtendedVisit        = ScheduledVisit
+)
 
 // FieldServiceResultResponse is the response from getting field service optimization results.
 type FieldServiceResultResponse struct {
-	JobID                  string                `json:"jobId,omitempty"`
+	JobID                  *string               `json:"jobId,omitempty"`
 	Vehicles               []ScheduledVehicle    `json:"vehicles"`
 	Visits                 []ScheduledVisit      `json:"visits"`
 	Score                  *string               `json:"score,omitempty"`
@@ -79,24 +89,28 @@ type FieldServiceResultResponse struct {
 	Weights                map[string]string     `json:"weights,omitempty"`
 }
 
-// ScheduledVehicle represents a vehicle in the optimization result.
+// ScheduledVehicle represents a vehicle in the optimization result. It
+// corresponds to the API's ExtendedVehicle model.
 type ScheduledVehicle struct {
-	ID                      string                 `json:"id"`
-	Location                [2]float64             `json:"location"`
-	Shifts                  []Shift                `json:"shifts"`
-	Skills                  []string               `json:"skills"`
-	Visits                  []string               `json:"visits"`
-	DailyReturnTimes        map[string]interface{} `json:"dailyReturnTimes,omitempty"`
-	TotalDrivingTimeSeconds *int64                 `json:"totalDrivingTimeSeconds,omitempty"`
-	ArrivalTime             *string                `json:"arrivalTime,omitempty"`
-	DepartureTime           *string                `json:"departureTime,omitempty"`
+	ID                      string            `json:"id"`
+	Name                    *string           `json:"name,omitempty"`
+	Location                [2]float64        `json:"location"`
+	Skills                  []string          `json:"skills"`
+	Shifts                  []Shift           `json:"shifts"`
+	DepartureTime           *string           `json:"departureTime,omitempty"`
+	Visits                  []string          `json:"visits"`
+	DailyReturnTimes        map[string]string `json:"dailyReturnTimes,omitempty"`
+	ArrivalTime             *string           `json:"arrivalTime,omitempty"`
+	TotalDrivingTimeSeconds int64             `json:"totalDrivingTimeSeconds"`
 }
 
-// ScheduledVisit represents a visit in the optimization result.
+// ScheduledVisit represents a visit in the optimization result. It corresponds
+// to the API's ExtendedVisit model.
 type ScheduledVisit struct {
 	ID                                       string       `json:"id"`
 	Name                                     string       `json:"name"`
 	Location                                 [2]float64   `json:"location"`
+	Pinned                                   *bool        `json:"pinned,omitempty"`
 	TimeWindows                              []TimeWindow `json:"timeWindows"`
 	// ServiceDuration is the service duration in seconds. The field-service solver
 	// serializes a Java Duration in the RESULT as a number of seconds (e.g. 3600.0),

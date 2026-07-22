@@ -22,5 +22,4 @@ type SolverStatusResponse struct {
 	Score        string       `json:"score"`
 	Feasible     bool         `json:"feasible"`
 	Solving      bool         `json:"solving"`
-	Message      string       `json:"message"`
 }

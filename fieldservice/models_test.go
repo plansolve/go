@@ -135,3 +135,69 @@ func TestCanDeserializeFieldServiceResultResponse(t *testing.T) {
 		t.Errorf("expected maxEndTime '2024-01-15T12:00:00', got %v", result.Visits[0].MaxEndTime)
 	}
 }
+
+func TestCanDeserializeExtendedVehicleAndVisitFields(t *testing.T) {
+	jsonStr := `{
+		"score": "0hard/0medium/-30soft",
+		"totalDrivingTimeSeconds": 5400,
+		"vehicles": [
+			{
+				"id": "v1",
+				"name": "Van 1",
+				"location": [51.52, -0.1],
+				"skills": ["English"],
+				"shifts": [],
+				"visits": ["1"],
+				"dailyReturnTimes": {"2024-01-15": "2024-01-15T17:30:00"},
+				"arrivalTime": "2024-01-15T17:30:00",
+				"totalDrivingTimeSeconds": 5400
+			}
+		],
+		"visits": [
+			{
+				"id": "1",
+				"name": "Task 1",
+				"location": [51.51, -0.12],
+				"timeWindows": [],
+				"serviceDuration": 1800.0,
+				"priority": "HIGH",
+				"requiredSkills": ["English"],
+				"pinned": true,
+				"vehicle": "v1",
+				"arrivalTime": "2024-01-15T10:15:33",
+				"departureTime": "2024-01-15T10:45:33",
+				"startServiceTime": "2024-01-15T10:15:33",
+				"drivingTimeSecondsFromPreviousStandstill": 933
+			}
+		]
+	}`
+
+	// FieldServiceSolution is a spec-name alias for FieldServiceResultResponse.
+	var result FieldServiceSolution
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if result.Score == nil || *result.Score != "0hard/0medium/-30soft" {
+		t.Errorf("expected score, got %v", result.Score)
+	}
+	if result.TotalDrivingTimeSeconds != 5400 {
+		t.Errorf("expected totalDrivingTimeSeconds 5400, got %d", result.TotalDrivingTimeSeconds)
+	}
+
+	v := result.Vehicles[0]
+	if v.Name == nil || *v.Name != "Van 1" {
+		t.Errorf("expected vehicle name 'Van 1', got %v", v.Name)
+	}
+	if v.DailyReturnTimes["2024-01-15"] != "2024-01-15T17:30:00" {
+		t.Errorf("expected dailyReturnTimes entry, got %v", v.DailyReturnTimes)
+	}
+	if v.TotalDrivingTimeSeconds != 5400 {
+		t.Errorf("expected vehicle totalDrivingTimeSeconds 5400, got %d", v.TotalDrivingTimeSeconds)
+	}
+
+	vis := result.Visits[0]
+	if vis.Pinned == nil || !*vis.Pinned {
+		t.Errorf("expected visit pinned true, got %v", vis.Pinned)
+	}
+}

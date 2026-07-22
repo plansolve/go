@@ -12,7 +12,7 @@ import (
 	"github.com/plansolve/go/solver"
 )
 
-const routeProfessionalServicesSolve = "/api/v1/solvers/professionalservices/solve"
+const routeProfessionalServicesSolve = "/api/v1/professionalservices"
 
 // Client is the professional services API client.
 type Client struct {
@@ -127,6 +127,7 @@ func (c *Client) GetResult(ctx context.Context, jobID string) (*ProfessionalServ
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	result.JobID = &jobID
 	return &result, nil
 }
 

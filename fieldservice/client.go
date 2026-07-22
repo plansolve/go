@@ -12,7 +12,7 @@ import (
 	"github.com/plansolve/go/solver"
 )
 
-const routeFieldServiceSolve = "/api/v1/solvers/fieldservice/solve"
+const routeFieldServiceSolve = "/api/v1/fieldservice"
 
 // Client is the field service API client.
 type Client struct {
@@ -127,7 +127,7 @@ func (c *Client) GetResult(ctx context.Context, jobID string) (*FieldServiceResu
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	result.JobID = jobID
+	result.JobID = &jobID
 	return &result, nil
 }
 

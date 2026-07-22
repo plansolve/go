@@ -14,6 +14,10 @@ func float64Ptr(f float64) *float64 {
 	return &f
 }
 
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 func TestCanConstructProfessionalServicesRequest(t *testing.T) {
 	request := ProfessionalServicesRequest{
 		Employees: []Employee{
@@ -73,12 +77,13 @@ func TestCanSerializeToJSON(t *testing.T) {
 
 func TestCanDeserializeResultResponse(t *testing.T) {
 	jsonStr := `{
+		"id": "job1",
+		"name": "Q1 Planning",
 		"employees": [
 			{
 				"id": "emp1",
 				"skills": ["C#", "JavaScript"],
-				"shifts": [],
-				"tasks": ["task1", "task2"]
+				"shifts": []
 			}
 		],
 		"tasks": [
@@ -86,13 +91,17 @@ func TestCanDeserializeResultResponse(t *testing.T) {
 				"id": "task1",
 				"name": "Develop API",
 				"deadline": "2024-01-20T17:00:00",
-				"duration": 28800.0,
+				"duration": "PT8H",
 				"priority": "HIGH",
-				"requiredSkills": ["C#", "JavaScript"],
-				"startTime": "2024-01-15T14:00:00",
-				"endTime": "2024-01-15T18:00:00"
+				"requiredSkills": ["C#", "JavaScript"]
 			}
-		]
+		],
+		"solverStatus": "NOT_SOLVING",
+		"feasible": true,
+		"scoreString": "0hard/-10soft",
+		"score": {"hardScore": 0, "softScore": -10},
+		"assignedTasks": ["task1"],
+		"unassignedTasks": []
 	}`
 
 	var result ProfessionalServicesResultResponse
@@ -112,14 +121,17 @@ func TestCanDeserializeResultResponse(t *testing.T) {
 	if result.Tasks[0].ID != "task1" {
 		t.Errorf("expected task ID 'task1', got '%s'", result.Tasks[0].ID)
 	}
-	if len(result.Employees[0].Tasks) != 2 {
-		t.Errorf("expected 2 tasks on employee, got %d", len(result.Employees[0].Tasks))
+	if result.Feasible == nil || !*result.Feasible {
+		t.Errorf("expected feasible to be true")
 	}
-	if result.Tasks[0].StartTime != "2024-01-15T14:00:00" {
-		t.Errorf("expected startTime '2024-01-15T14:00:00', got '%s'", result.Tasks[0].StartTime)
+	if result.ScoreString == nil || *result.ScoreString != "0hard/-10soft" {
+		t.Errorf("expected scoreString '0hard/-10soft', got %v", result.ScoreString)
 	}
-	if result.Tasks[0].EndTime != "2024-01-15T18:00:00" {
-		t.Errorf("expected endTime '2024-01-15T18:00:00', got '%s'", result.Tasks[0].EndTime)
+	if result.Score["hardScore"] != float64(0) {
+		t.Errorf("expected score.hardScore 0, got %v", result.Score["hardScore"])
+	}
+	if len(result.AssignedTasks) != 1 || result.AssignedTasks[0] != "task1" {
+		t.Errorf("expected assignedTasks ['task1'], got %v", result.AssignedTasks)
 	}
 }
 
@@ -190,60 +202,36 @@ func TestCanConstructTaskWithRequiredSkills(t *testing.T) {
 	}
 }
 
-func TestCanConstructScheduledEmployee(t *testing.T) {
-	scheduledEmployee := ScheduledEmployee{
-		ID:     "emp1",
-		Skills: []string{"C#"},
-		Shifts: []Shift{},
-		Tasks:  []string{"task1", "task2", "task3"},
+func TestCanConstructResultResponseEcho(t *testing.T) {
+	result := ProfessionalServicesResultResponse{
+		ID:   strPtr("job1"),
+		Name: strPtr("Q1 Planning"),
+		Employees: []Employee{
+			{ID: "emp1", Skills: []string{"C#"}, Shifts: []Shift{}},
+		},
+		Tasks: []Task{
+			{ID: "task1", Name: "Code Review", Duration: "PT8H", Priority: "HIGH", RequiredSkills: []string{"C#"}},
+		},
+		Feasible:        boolPtr(true),
+		ScoreString:     strPtr("0hard/-10soft"),
+		AssignedTasks:   []string{"task1"},
+		UnassignedTasks: []string{},
 	}
 
-	if scheduledEmployee.ID != "emp1" {
-		t.Errorf("expected ID 'emp1', got '%s'", scheduledEmployee.ID)
+	if *result.ID != "job1" {
+		t.Errorf("expected ID 'job1', got '%s'", *result.ID)
 	}
-	if len(scheduledEmployee.Tasks) != 3 {
-		t.Errorf("expected 3 tasks, got %d", len(scheduledEmployee.Tasks))
+	if len(result.Employees) != 1 {
+		t.Errorf("expected 1 employee, got %d", len(result.Employees))
 	}
-	for _, expected := range []string{"task1", "task2", "task3"} {
-		found := false
-		for _, task := range scheduledEmployee.Tasks {
-			if task == expected {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected tasks to contain '%s'", expected)
-		}
+	if len(result.Tasks) != 1 {
+		t.Errorf("expected 1 task, got %d", len(result.Tasks))
 	}
-}
-
-func TestCanConstructScheduledTask(t *testing.T) {
-	scheduledTask := ScheduledTask{
-		ID:             "task1",
-		Name:           "Code Review",
-		Deadline:       strPtr("2024-01-22T17:00:00"),
-		Duration:       500.0,
-		Priority:       "HIGH",
-		RequiredSkills: []string{"C#", "Code Review"},
-		StartTime:      "2024-01-15T14:00:00",
-		EndTime:        "2024-01-15T18:00:00",
+	if len(result.AssignedTasks) != 1 || result.AssignedTasks[0] != "task1" {
+		t.Errorf("expected assignedTasks ['task1'], got %v", result.AssignedTasks)
 	}
-
-	if scheduledTask.ID != "task1" {
-		t.Errorf("expected ID 'task1', got '%s'", scheduledTask.ID)
-	}
-	if scheduledTask.Name != "Code Review" {
-		t.Errorf("expected name 'Code Review', got '%s'", scheduledTask.Name)
-	}
-	if scheduledTask.StartTime != "2024-01-15T14:00:00" {
-		t.Errorf("expected startTime '2024-01-15T14:00:00', got '%s'", scheduledTask.StartTime)
-	}
-	if scheduledTask.EndTime != "2024-01-15T18:00:00" {
-		t.Errorf("expected endTime '2024-01-15T18:00:00', got '%s'", scheduledTask.EndTime)
-	}
-	if scheduledTask.Priority != "HIGH" {
-		t.Errorf("expected priority 'HIGH', got '%s'", scheduledTask.Priority)
+	if result.Feasible == nil || !*result.Feasible {
+		t.Errorf("expected feasible to be true")
 	}
 }
 
@@ -522,11 +510,9 @@ func TestCanDeserializeNewFieldsFromJSON(t *testing.T) {
 			{
 				"id": "task1",
 				"name": "API Work",
-				"duration": 28800.0,
+				"duration": "PT8H",
 				"priority": "HIGH",
-				"requiredSkills": ["C#"],
-				"startTime": "2024-01-15T14:00:00",
-				"endTime": "2024-01-15T18:00:00"
+				"requiredSkills": ["C#"]
 			}
 		]
 	}`

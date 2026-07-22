@@ -647,3 +647,66 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 		t.Errorf("expected 1 employee shift, got %d", len(result.Employees[0].Shifts))
 	}
 }
+
+func TestShiftResultResponseEchoesRequestFields(t *testing.T) {
+	jsonStr := `{
+		"id": "req1",
+		"name": "Weekly Schedule",
+		"description": "Week 3",
+		"contracts": [
+			{"name": "full-time", "minimumConsecutiveDaysOff": 2, "minimumHoursOffBetweenShifts": 11}
+		],
+		"shifts": [
+			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00"}
+		],
+		"options": {"partialPlanning": true, "timeLimit": 60},
+		"weights": {"requiredSkills": 10},
+		"hook": "https://example.com/webhook",
+		"feasible": true,
+		"scoreString": "0hard/-120soft",
+		"score": {"hardScore": 0, "softScore": -120},
+		"assignedShifts": [
+			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00"}
+		],
+		"unassignedShifts": [],
+		"employees": [
+			{"name": "Alice", "contract": "full-time", "skills": ["Nursing"], "shifts": []}
+		]
+	}`
+
+	var result ShiftResultResponse
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	// Echoed request fields.
+	if result.ID == nil || *result.ID != "req1" {
+		t.Errorf("expected echoed id 'req1', got %v", result.ID)
+	}
+	if result.Name == nil || *result.Name != "Weekly Schedule" {
+		t.Errorf("expected echoed name, got %v", result.Name)
+	}
+	if len(result.Contracts) != 1 || result.Contracts[0].MinimumConsecutiveDaysOff != 2 {
+		t.Errorf("expected echoed contracts, got %v", result.Contracts)
+	}
+	if len(result.Shifts) != 1 {
+		t.Errorf("expected echoed shifts, got %d", len(result.Shifts))
+	}
+	if result.Options == nil || result.Options.PartialPlanning == nil || !*result.Options.PartialPlanning {
+		t.Errorf("expected echoed options.partialPlanning true, got %v", result.Options)
+	}
+	if result.Weights == nil || result.Weights.RequiredSkills != 10 {
+		t.Errorf("expected echoed weights.requiredSkills 10, got %v", result.Weights)
+	}
+	if result.Hook == nil || *result.Hook != "https://example.com/webhook" {
+		t.Errorf("expected echoed hook, got %v", result.Hook)
+	}
+
+	// Result-only fields.
+	if result.Feasible == nil || !*result.Feasible {
+		t.Errorf("expected feasible true")
+	}
+	if len(result.AssignedShifts) != 1 {
+		t.Errorf("expected 1 assigned shift, got %d", len(result.AssignedShifts))
+	}
+}

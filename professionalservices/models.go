@@ -76,37 +76,25 @@ type ProfessionalServicesStartResponse struct {
 	Error       *string `json:"error,omitempty"`
 }
 
-// ProfessionalServicesResultResponse is the response from getting professional services optimization results.
+// ProfessionalServicesResultResponse is the response from getting professional
+// services optimization results. It corresponds to the API's
+// ProfessionalServicesResponse: a full echo of the request PLUS the result
+// fields (solverStatus, feasible, scoreString, score, unassignedTasks,
+// assignedTasks).
 type ProfessionalServicesResultResponse struct {
-	Employees []ScheduledEmployee `json:"employees"`
-	Tasks     []ScheduledTask     `json:"tasks"`
-	Score     *string             `json:"score,omitempty"`
-	Weights   map[string]string   `json:"weights,omitempty"`
-}
-
-// ScheduledEmployee represents an employee in the optimization result.
-type ScheduledEmployee struct {
-	ID                    string                 `json:"id"`
-	Name                  *string                `json:"name,omitempty"`
-	Email                 *string                `json:"email,omitempty"`
-	Shifts                []Shift                `json:"shifts"`
-	Skills                []string               `json:"skills"`
-	HourlyRate            *float64               `json:"hourlyRate,omitempty"`
-	ContractID            *string                `json:"contractId,omitempty"`
-	TimeZoneID            *string                `json:"timeZoneId,omitempty"`
-	DedicatedClientID     *string                `json:"dedicatedClientId,omitempty"`
-	AvailabilityTimeSpans []AvailabilityTimeSpan `json:"availabilityTimeSpans,omitempty"`
-	Tasks                 []string               `json:"tasks"`
-}
-
-// ScheduledTask represents a task in the optimization result.
-type ScheduledTask struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	StartTime      string   `json:"startTime"`
-	EndTime        string   `json:"endTime"`
-	Duration       float64  `json:"duration"`
-	Deadline       *string  `json:"deadline,omitempty"`
-	Priority       string   `json:"priority"`
-	RequiredSkills []string `json:"requiredSkills"`
+	JobID           *string                `json:"jobId,omitempty"`
+	ID              *string                `json:"id,omitempty"`
+	Name            *string                `json:"name,omitempty"`
+	Description     *string                `json:"description,omitempty"`
+	StartDate       *string                `json:"startDate,omitempty"`
+	EndDate         *string                `json:"endDate,omitempty"`
+	Employees       []Employee             `json:"employees,omitempty"`
+	Tasks           []Task                 `json:"tasks,omitempty"`
+	Contracts       []Contract             `json:"contracts,omitempty"`
+	SolverStatus    *string                `json:"solverStatus,omitempty"`
+	Feasible        *bool                  `json:"feasible,omitempty"`
+	ScoreString     *string                `json:"scoreString,omitempty"`
+	Score           map[string]interface{} `json:"score,omitempty"`
+	UnassignedTasks []string               `json:"unassignedTasks,omitempty"`
+	AssignedTasks   []string               `json:"assignedTasks,omitempty"`
 }
