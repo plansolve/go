@@ -10,9 +10,12 @@ var scorePattern = regexp.MustCompile(`^(-?\d+)hard/(-?\d+)medium/(-?\d+)soft$`)
 
 // Score represents an optimization score in the format "Xhard/Ymedium/Zsoft".
 type Score struct {
-	Hard   int `json:"hard"`
+	// Hard is the hard-constraint score level; non-zero means constraints are violated.
+	Hard int `json:"hard"`
+	// Medium is the medium-constraint score level.
 	Medium int `json:"medium"`
-	Soft   int `json:"soft"`
+	// Soft is the soft-constraint score level, used to rank feasible solutions.
+	Soft int `json:"soft"`
 }
 
 // ParseScore parses a score string in the format "Xhard/Ymedium/Zsoft".

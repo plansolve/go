@@ -15,8 +15,12 @@ type SolverStatus = solver.SolverStatus
 type SolverStatusResponse = solver.SolverStatusResponse
 
 const (
-	SolverStatusNotSolving       = solver.SolverStatusNotSolving
-	SolverStatusSolvingActive    = solver.SolverStatusSolvingActive
+	// SolverStatusNotSolving indicates the solver is not currently working on the job.
+	SolverStatusNotSolving = solver.SolverStatusNotSolving
+	// SolverStatusSolvingActive indicates the solver is actively working on the job.
+	SolverStatusSolvingActive = solver.SolverStatusSolvingActive
+	// SolverStatusTerminatingEarly indicates the solver is stopping before its limits are reached.
 	SolverStatusTerminatingEarly = solver.SolverStatusTerminatingEarly
+	// SolverStatusSolvingScheduled indicates the job is queued and scheduled to start solving.
 	SolverStatusSolvingScheduled = solver.SolverStatusSolvingScheduled
 )

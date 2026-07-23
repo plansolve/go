@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/plansolve/go/fieldservice"
+	"github.com/plansolve/go/jobs"
 	"github.com/plansolve/go/professionalservices"
 	"github.com/plansolve/go/shift"
 )
@@ -17,9 +18,14 @@ const (
 
 // Client is the main PlanSolve API client.
 type Client struct {
-	FieldService         *fieldservice.Client
+	// FieldService is the client for the field service solver API.
+	FieldService *fieldservice.Client
+	// ProfessionalServices is the client for the professional services solver API.
 	ProfessionalServices *professionalservices.Client
-	Shift                *shift.Client
+	// Shift is the client for the shift assignment solver API.
+	Shift *shift.Client
+	// Jobs is the client for the public Jobs API.
+	Jobs *jobs.Client
 }
 
 // NewClient creates a new PlanSolve client with the given API key.
@@ -37,6 +43,7 @@ func NewClient(apiKey string) *Client {
 		FieldService:         fieldservice.NewClient(httpClient, baseURL, apiKey),
 		ProfessionalServices: professionalservices.NewClient(httpClient, baseURL, apiKey),
 		Shift:                shift.NewClient(httpClient, baseURL, apiKey),
+		Jobs:                 jobs.NewClient(httpClient, baseURL, apiKey),
 	}
 }
 

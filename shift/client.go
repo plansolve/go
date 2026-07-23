@@ -162,6 +162,38 @@ func (c *Client) Analyze(ctx context.Context, jobID string) (map[string]interfac
 	return result, nil
 }
 
+// Stop stops an in-progress shift solve and returns the best solution found so far.
+func (c *Client) Stop(ctx context.Context, jobID string) (*ShiftResultResponse, error) {
+	url := fmt.Sprintf("%s%s/%s", c.baseURL, routeShiftSolve, jobID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
+	}
+
+	var result ShiftResultResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	result.JobID = &jobID
+	return &result, nil
+}
+
 // StartAndWaitForCompletion starts a job and polls until it completes.
 func (c *Client) StartAndWaitForCompletion(ctx context.Context, request ShiftRequest, pollIntervalMs int, maxAttempts int) (*ShiftResultResponse, error) {
 	if pollIntervalMs <= 0 {

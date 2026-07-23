@@ -10,5 +10,6 @@ var ErrMissingAPIKey = errors.New("PLANSOLVE_API_KEY environment variable is not
 // via the solver package's ExtractErrorMessage; this type is provided for
 // callers that want to decode the raw body themselves.
 type ErrorResponse struct {
+	// Error is a human-readable description of what went wrong.
 	Error *string `json:"error,omitempty"`
 }
