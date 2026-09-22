@@ -162,13 +162,45 @@ func (c *Client) Analyze(ctx context.Context, jobID string) (map[string]interfac
 	return result, nil
 }
 
+// Stop stops an in-progress field service solve and returns the best solution found so far.
+func (c *Client) Stop(ctx context.Context, jobID string) (*FieldServiceResultResponse, error) {
+	url := fmt.Sprintf("%s%s/%s", c.baseURL, routeFieldServiceSolve, jobID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.apiKey != "" {
+		req.Header.Set("X-API-KEY", c.apiKey)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
+	}
+
+	var result FieldServiceResultResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	result.JobID = &jobID
+	return &result, nil
+}
+
 // StartAndWaitForCompletion starts a job and polls until it completes.
 func (c *Client) StartAndWaitForCompletion(ctx context.Context, request FieldServiceRequest, pollIntervalMs int, maxAttempts int) (*FieldServiceResultResponse, error) {
 	if pollIntervalMs <= 0 {
 		pollIntervalMs = 5000
 	}
 	if maxAttempts <= 0 {
-		maxAttempts = 60
+		maxAttempts = 150
 	}
 
 	startResp, err := c.Start(ctx, request)
@@ -188,7 +220,7 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 		pollIntervalMs = 5000
 	}
 	if maxAttempts <= 0 {
-		maxAttempts = 60
+		maxAttempts = 150
 	}
 
 	pollInterval := time.Duration(pollIntervalMs) * time.Millisecond
@@ -209,16 +241,15 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 
 		if !isStillSolving(status) || attempts >= maxAttempts {
 			if isStillSolving(status) {
-				return nil, fmt.Errorf("solver still running after the client's poll budget elapsed (maxAttempts*pollInterval); increase maxAttempts/pollInterval, or set options.spentLimit in the request so the solver stops on its own")
+				return nil, fmt.Errorf("solver still running after %d polls; raise maxAttempts or lower options.spentLimit", attempts)
 			}
 			return c.GetResult(ctx, jobID)
 		}
 	}
 }
 
+// isStillSolving mirrors the server's completion rule (SolverStatusResponse.IsComplete):
+// a job is done when solving is false and solverStatus is NOT_SOLVING. No score is required.
 func isStillSolving(status *solver.SolverStatusResponse) bool {
-	return status.Solving ||
-		status.SolverStatus == solver.SolverStatusSolvingScheduled ||
-		status.SolverStatus != solver.SolverStatusNotSolving ||
-		status.Score == ""
+	return status.Solving || status.SolverStatus != solver.SolverStatusNotSolving
 }

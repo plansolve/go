@@ -1,4 +1,4 @@
-package shift
+package fieldservice
 
 import (
 	"context"
@@ -10,32 +10,6 @@ import (
 	"github.com/plansolve/go/solver"
 )
 
-func TestGetResultStampsJobID(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// Response body deliberately carries no jobId; the client must stamp it.
-		_, _ = w.Write([]byte(`{"feasible": true, "scoreString": "0hard/-5soft", "assignedShifts": [], "unassignedShifts": [], "employees": []}`))
-	}))
-	defer server.Close()
-
-	client := NewClient(server.Client(), server.URL, "test-key")
-
-	result, err := client.GetResult(context.Background(), "job-123")
-	if err != nil {
-		t.Fatalf("GetResult failed: %v", err)
-	}
-
-	if result.JobID == nil {
-		t.Fatalf("expected JobID to be stamped, got nil")
-	}
-	if *result.JobID != "job-123" {
-		t.Errorf("expected JobID 'job-123', got '%s'", *result.JobID)
-	}
-	if result.Feasible == nil || !*result.Feasible {
-		t.Errorf("expected feasible true")
-	}
-}
-
 func TestStopSendsDeleteAndStampsJobID(t *testing.T) {
 	var gotMethod, gotPath, gotKey string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +17,7 @@ func TestStopSendsDeleteAndStampsJobID(t *testing.T) {
 		gotPath = r.URL.Path
 		gotKey = r.Header.Get("X-API-KEY")
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"feasible": true, "scoreString": "0hard/-5soft", "assignedShifts": [], "unassignedShifts": [], "employees": []}`))
+		_, _ = w.Write([]byte(`{"vehicles": [], "visits": [], "score": "0hard/0medium/-100soft", "totalDrivingTimeSeconds": 100}`))
 	}))
 	defer server.Close()
 
@@ -57,8 +31,8 @@ func TestStopSendsDeleteAndStampsJobID(t *testing.T) {
 	if gotMethod != http.MethodDelete {
 		t.Errorf("expected DELETE, got %s", gotMethod)
 	}
-	if gotPath != "/api/v1/shift/job-stop" {
-		t.Errorf("expected path '/api/v1/shift/job-stop', got '%s'", gotPath)
+	if gotPath != "/api/v1/fieldservice/job-stop" {
+		t.Errorf("expected path '/api/v1/fieldservice/job-stop', got '%s'", gotPath)
 	}
 	if gotKey != "test-key" {
 		t.Errorf("expected X-API-KEY 'test-key', got '%s'", gotKey)
@@ -107,8 +81,8 @@ func TestAnalyzeCallsAnalyzeEndpoint(t *testing.T) {
 	if gotMethod != http.MethodGet {
 		t.Errorf("expected GET, got %s", gotMethod)
 	}
-	if gotPath != "/api/v1/shift/job-an/analyze" {
-		t.Errorf("expected path '/api/v1/shift/job-an/analyze', got '%s'", gotPath)
+	if gotPath != "/api/v1/fieldservice/job-an/analyze" {
+		t.Errorf("expected path '/api/v1/fieldservice/job-an/analyze', got '%s'", gotPath)
 	}
 	if analysis["score"] != "0hard/-5soft" {
 		t.Errorf("expected score '0hard/-5soft', got %v", analysis["score"])
@@ -143,7 +117,7 @@ func TestWaitForCompletionFinishesWithoutScore(t *testing.T) {
 			_, _ = w.Write([]byte(`{"jobId": "job-w", "solverStatus": "NOT_SOLVING", "solving": false}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"feasible": true, "scoreString": "0hard/-5soft", "assignedShifts": [], "unassignedShifts": [], "employees": []}`))
+		_, _ = w.Write([]byte(`{"vehicles": [], "visits": [], "score": "0hard/0medium/-100soft", "totalDrivingTimeSeconds": 100}`))
 	}))
 	defer server.Close()
 

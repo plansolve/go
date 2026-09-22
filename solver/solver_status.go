@@ -1,7 +1,7 @@
 // Package solver holds types shared between the root plansolve package and the
 // per-service subpackages (fieldservice, professionalservices, shift). It lives
 // in its own leaf package so the subpackages can use these types without
-// importing the root package — which would create an import cycle, since the
+// importing the root package - which would create an import cycle, since the
 // root package imports the subpackages to assemble the aggregate Client.
 package solver
 

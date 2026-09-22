@@ -200,7 +200,7 @@ func (c *Client) StartAndWaitForCompletion(ctx context.Context, request ShiftReq
 		pollIntervalMs = 5000
 	}
 	if maxAttempts <= 0 {
-		maxAttempts = 60
+		maxAttempts = 150
 	}
 
 	startResp, err := c.Start(ctx, request)
@@ -220,7 +220,7 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 		pollIntervalMs = 5000
 	}
 	if maxAttempts <= 0 {
-		maxAttempts = 60
+		maxAttempts = 150
 	}
 
 	pollInterval := time.Duration(pollIntervalMs) * time.Millisecond
@@ -241,16 +241,15 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 
 		if !isStillSolving(status) || attempts >= maxAttempts {
 			if isStillSolving(status) {
-				return nil, fmt.Errorf("solver still running after the client's poll budget elapsed (maxAttempts*pollInterval); increase maxAttempts/pollInterval, or set options.spentLimit in the request so the solver stops on its own")
+				return nil, fmt.Errorf("solver still running after %d polls; raise maxAttempts or lower options.spentLimit", attempts)
 			}
 			return c.GetResult(ctx, jobID)
 		}
 	}
 }
 
+// isStillSolving mirrors the server's completion rule (SolverStatusResponse.IsComplete):
+// a job is done when solving is false and solverStatus is NOT_SOLVING. No score is required.
 func isStillSolving(status *solver.SolverStatusResponse) bool {
-	return status.Solving ||
-		status.SolverStatus == solver.SolverStatusSolvingScheduled ||
-		status.SolverStatus != solver.SolverStatusNotSolving ||
-		status.Score == ""
+	return status.Solving || status.SolverStatus != solver.SolverStatusNotSolving
 }

@@ -9,7 +9,7 @@ type FieldServiceRequest struct {
 	// Weights holds per-constraint weight overrides keyed by constraint name, in
 	// the form Xhard/Ymedium/Zsoft, e.g. {"minimizeTravelTime": "0hard/0medium/1soft"}.
 	// The server models this as an open map (additionalProperties: string), so any
-	// constraint key and score string passes through unchanged — do not narrow it
+	// constraint key and score string passes through unchanged - do not narrow it
 	// to a fixed struct.
 	Weights map[string]string `json:"weights,omitempty"`
 	// Options holds optional termination controls for the solve.
@@ -168,7 +168,7 @@ type ScheduledVisit struct {
 	TimeWindows []TimeWindow `json:"timeWindows"`
 	// ServiceDuration is the service duration in seconds. The field-service solver
 	// serializes a Java Duration in the RESULT as a number of seconds (e.g. 3600.0),
-	// so this is a float64 — unlike the request Visit.ServiceDuration which is an
+	// so this is a float64 - unlike the request Visit.ServiceDuration which is an
 	// ISO-8601 string input like "PT1H".
 	ServiceDuration float64 `json:"serviceDuration"`
 	// Priority is the relative importance of servicing the visit (e.g. LOW, MEDIUM, HIGH).
