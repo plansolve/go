@@ -1,6 +1,7 @@
 package shift
 
-// ShiftRequest is the request model for starting a shift optimization.
+// ShiftRequest is the request model for starting a shift optimization. It
+// corresponds to the API's ShiftAssignmentRequest.
 type ShiftRequest struct {
 	// ID is the optional caller-supplied identifier for the plan.
 	ID *string `json:"id,omitempty"`
@@ -8,65 +9,34 @@ type ShiftRequest struct {
 	Name *string `json:"name,omitempty"`
 	// Description is the free-text plan description.
 	Description *string `json:"description,omitempty"`
-	// Contracts define the working-time rules referenced by employees.
+	// Contracts available in this plan. Employees carry their own contract; this list is a
+	// convenience catalogue for callers that reuse the same rules across employees.
 	Contracts []Contract `json:"contracts,omitempty"`
 	// Shifts that need to be staffed.
 	Shifts []ShiftAssignment `json:"shifts,omitempty"`
 	// Employees available to be assigned to shifts.
 	Employees []ShiftEmployee `json:"employees,omitempty"`
-	// Options holds optional controls governing how the shift solver runs.
-	Options *Options `json:"options,omitempty"`
-	// Weights are the per-constraint penalty weights that steer the solver's objective.
-	Weights *Weights `json:"weights,omitempty"`
-	// Fairness holds the fairness configuration.
-	Fairness *Fairness `json:"fairness,omitempty"`
-	// DayOffRequests are employee requests to have specific days off.
-	DayOffRequests []DayOffRequest `json:"dayOffRequests,omitempty"`
+	// TimeOffRequests are employee requests to be given a period off. Soft - honored when possible.
+	TimeOffRequests []ShiftTimeOffRequest `json:"timeOffRequests,omitempty"`
+	// Unavailabilities are periods employees cannot work. Hard - never scheduled over.
+	Unavailabilities []ShiftUnavailability `json:"unavailabilities,omitempty"`
 	// ShiftOffRequests are employee requests to avoid specific shifts.
 	ShiftOffRequests []ShiftOffRequest `json:"shiftOffRequests,omitempty"`
+	// Fairness holds the fairness configuration.
+	Fairness *Fairness `json:"fairness,omitempty"`
 	// Hook is an optional callback URL invoked when solving completes.
 	Hook *string `json:"hook,omitempty"`
-	// ConstraintWeightOverrides holds advanced knobs for the shift constraint set.
-	ConstraintWeightOverrides *ConstraintWeightOverrides `json:"constraintWeightOverrides,omitempty"`
+	// Weights holds per-constraint weight overrides keyed by constraint name, in
+	// the form Xhard/Ymedium/Zsoft, e.g. {"shiftOffRequest": "0hard/0medium/4soft"}.
+	// The server models this as an open map (additionalProperties: string), so any
+	// constraint key and score string passes through unchanged.
+	Weights map[string]string `json:"weights,omitempty"`
+	// Options holds optional termination controls for the solve.
+	Options *SolverOptions `json:"options,omitempty"`
 }
 
-// Shift represents a time window for shift scheduling.
-type Shift struct {
-	// ID is the caller-supplied unique identifier for the shift.
-	ID string `json:"id"`
-	// MinStartTime is the earliest the shift may start.
-	MinStartTime string `json:"minStartTime"`
-	// MaxEndTime is the latest the shift may end.
-	MaxEndTime string `json:"maxEndTime"`
-}
-
-// Employee represents an employee in shift scheduling.
-type Employee struct {
-	// ID is the caller-supplied unique identifier for the employee.
-	ID string `json:"id"`
-	// Shifts assigned to or available for the employee.
-	Shifts []Shift `json:"shifts"`
-	// Skills the employee possesses.
-	Skills []string `json:"skills"`
-}
-
-// Task represents a task in shift scheduling.
-type Task struct {
-	// ID is the caller-supplied unique identifier for the task.
-	ID string `json:"id"`
-	// Name is the task display name.
-	Name string `json:"name"`
-	// Deadline is the latest the task may be completed, as an ISO-8601 timestamp.
-	Deadline *string `json:"deadline,omitempty"`
-	// Duration is the effort required to complete the task, as an ISO-8601 duration.
-	Duration string `json:"duration"`
-	// Priority is the scheduling priority (e.g. LOW, MEDIUM, HIGH).
-	Priority string `json:"priority"`
-	// RequiredSkills are the skills an employee must have to be assigned the task.
-	RequiredSkills []string `json:"requiredSkills"`
-}
-
-// ShiftAssignment represents a shift assignment to be scheduled.
+// ShiftAssignment represents a shift that needs to be staffed, and - on the
+// solution side - the employee the solver assigned to it.
 type ShiftAssignment struct {
 	// Name is the shift name, used as its identifier.
 	Name *string `json:"name,omitempty"`
@@ -76,132 +46,86 @@ type ShiftAssignment struct {
 	To *string `json:"to,omitempty"`
 	// Skills an employee must have to be assigned this shift.
 	Skills []string `json:"skills,omitempty"`
-	// Cost of staffing this shift.
-	Cost float64 `json:"cost"`
-	// Value is the business value of staffing this shift.
-	Value int `json:"value"`
-	// Priority is the relative priority of staffing this shift.
-	Priority int `json:"priority"`
-	// DesiredSkills are skills that are preferred but not required.
+	// DesiredSkills are skills that are preferred but not required for this shift.
 	DesiredSkills []string `json:"desiredSkills,omitempty"`
 	// Tags are arbitrary tags used for grouping and affinity constraints.
 	Tags []string `json:"tags,omitempty"`
+	// CostFactor is the multiplier applied to the assigned employee's hourly cost for this shift.
+	// Omit for the solver default (1.0).
+	CostFactor *float64 `json:"costFactor,omitempty"`
+	// Value is the number of employees this shift needs. The solver expands a shift with
+	// value > 1 into one entity per required employee, named "{name}#1", "{name}#2", ... and
+	// carrying OriginalName. Omit for the solver default (1).
+	Value *int `json:"value,omitempty"`
+	// Priority is the relative priority of staffing this shift. Omit for the solver default (5).
+	Priority *int `json:"priority,omitempty"`
+	// OriginalName is the name of the shift this one was expanded from when a shift needs
+	// several employees; the solver splits it into one instance per required employee.
+	OriginalName *string `json:"originalName,omitempty"`
 	// PinnedByUser, when true, locks the existing assignment and leaves it unchanged by the solver.
 	PinnedByUser bool `json:"pinnedByUser"`
+	// AssignedEmployee (solution) is the id of the employee the solver assigned to this shift,
+	// or nil if unstaffed. The wire format is the bare employee id, not a nested object.
+	AssignedEmployee *string `json:"assignedEmployee,omitempty"`
 }
 
-// ShiftEmployee represents an employee in the shift optimization.
+// ShiftEmployee represents an employee available for shift assignment.
 type ShiftEmployee struct {
-	// Name is the employee name, used as the identifier referenced by requests and assignments.
+	// ID is the employee identifier, referenced by time-off, unavailability and shift-off requests.
+	ID *string `json:"id,omitempty"`
+	// Name is the employee display name.
 	Name *string `json:"name,omitempty"`
-	// Contract is the name of the Contract governing this employee's working-time rules.
-	Contract *string `json:"contract,omitempty"`
-	// Skills the employee possesses.
+	// Skills the employee possesses, matched against each shift's required skills.
 	Skills []string `json:"skills,omitempty"`
-	// LastRestDate is the date the employee last had rest.
-	LastRestDate *string `json:"lastRestDate,omitempty"`
-	// Availability lists the dates/periods the employee is available to work.
-	Availability []string `json:"availability,omitempty"`
-	// Preference lists the shifts/periods the employee prefers to work.
-	Preference []string `json:"preference,omitempty"`
-	// PeriodRules are the period-specific working-time rules for this employee.
-	PeriodRules []PeriodRule `json:"periodRules,omitempty"`
-	// UnavailableDates lists the dates the employee cannot work.
-	UnavailableDates []string `json:"unavailableDates,omitempty"`
+	// LastShiftEnd is the end of the employee's last shift before the planning window, as an
+	// ISO-8601 timestamp. Seeds the rest-between-shifts constraint across the window boundary.
+	LastShiftEnd *string `json:"lastShiftEnd,omitempty"`
+	// PreferredShifts are the names of shifts the employee prefers to work.
+	PreferredShifts []string `json:"preferredShifts,omitempty"`
 	// Tags are arbitrary tags used for grouping and affinity constraints.
 	Tags []string `json:"tags,omitempty"`
-	// MaximumMinutesPerWeek is the cap on weekly working minutes.
-	MaximumMinutesPerWeek *int `json:"maximumMinutesPerWeek,omitempty"`
-	// Shifts are the solution shifts assigned to this employee.
-	Shifts []ShiftAssignment `json:"shifts,omitempty"`
+	// CostPerHour is the hourly cost of this employee, used by cost-minimization.
+	CostPerHour float64 `json:"costPerHour"`
+	// Contract is the name of the Contract governing this employee, resolved against the plan's
+	// contracts. The wire format is the bare name (e.g. "FULL_TIME"), not a nested object.
+	Contract *string `json:"contract,omitempty"`
 }
 
-// Contract represents a shift employee contract.
+// Contract holds working-time rules that constrain how the employee holding it can be
+// scheduled. It corresponds to the API's ShiftContract.
 type Contract struct {
 	// Name is the contract name, referenced by an employee's contract field.
 	Name *string `json:"name,omitempty"`
-	// Max is the maximum total working time, as an ISO-8601 duration.
-	Max *string `json:"max,omitempty"`
-	// Min is the minimum total working time, as an ISO-8601 duration.
-	Min *string `json:"min,omitempty"`
-	// MaxConsecutiveWorkDays is the maximum consecutive days that may be worked.
-	MaxConsecutiveWorkDays int `json:"maxConsecutiveWorkDays"`
-	// MaxShiftsDay is the maximum shifts allowed on a single day.
-	MaxShiftsDay int `json:"maxShiftsDay"`
-	// MinRestBetweenShiftsSameDay is the minimum rest between two shifts on the same day.
-	MinRestBetweenShiftsSameDay *string `json:"minRestBetweenShiftsSameDay,omitempty"`
-	// MaxWorkingDays is the maximum working days in the planning period.
-	MaxWorkingDays int `json:"maxWorkingDays"`
-	// LatestShiftStart is the latest permitted shift start time.
-	LatestShiftStart *string `json:"latestShiftStart,omitempty"`
-	// EarliestShiftStart is the earliest permitted shift start time.
+	// MinWorkDurationPerWeek is the minimum working time per week, as an ISO-8601 duration.
+	MinWorkDurationPerWeek *string `json:"minWorkDurationPerWeek,omitempty"`
+	// MaxWorkDurationPerWeek is the maximum working time per week, as an ISO-8601 duration.
+	MaxWorkDurationPerWeek *string `json:"maxWorkDurationPerWeek,omitempty"`
+	// MaxConsecutiveWorkDays is the maximum number of consecutive days that may be worked.
+	// Omit for the solver default (5).
+	MaxConsecutiveWorkDays *int `json:"maxConsecutiveWorkDays,omitempty"`
+	// MaxShiftsDay is the maximum number of shifts allowed on a single day. Omit for the solver default (2).
+	MaxShiftsDay *int `json:"maxShiftsDay,omitempty"`
+	// MinRestBetweenShifts is the minimum rest between two consecutive shifts, as an ISO-8601
+	// duration. Omit for the solver default (PT11H).
+	MinRestBetweenShifts *string `json:"minRestBetweenShifts,omitempty"`
+	// MaxWorkingDaysPerWeek is the maximum number of working days per week. Omit for the solver default (6).
+	MaxWorkingDaysPerWeek *int `json:"maxWorkingDaysPerWeek,omitempty"`
+	// LatestShiftEnd is the latest permitted shift end time (time of day, e.g. 22:00:00).
+	LatestShiftEnd *string `json:"latestShiftEnd,omitempty"`
+	// EarliestShiftStart is the earliest permitted shift start time (time of day, e.g. 06:00:00).
 	EarliestShiftStart *string `json:"earliestShiftStart,omitempty"`
-	// MinimumConsecutiveDaysOff is the minimum consecutive days off between working stretches.
-	MinimumConsecutiveDaysOff int `json:"minimumConsecutiveDaysOff"`
-	// MinimumHoursOffBetweenShifts is the minimum hours off between consecutive shifts.
-	MinimumHoursOffBetweenShifts int `json:"minimumHoursOffBetweenShifts"`
+	// MinConsecutiveDaysOff is the minimum number of consecutive days off between working
+	// stretches. Omit for the solver default (1).
+	MinConsecutiveDaysOff *int `json:"minConsecutiveDaysOff,omitempty"`
 }
 
-// Weights represents the constraint weights for the shift optimizer.
-type Weights struct {
-	// RequiredSkills is the penalty for assigning an employee who lacks a shift's required skills.
-	RequiredSkills int `json:"requiredSkills"`
-	// ShiftCapacity is the penalty for exceeding a shift's staffing capacity.
-	ShiftCapacity int `json:"shiftCapacity"`
-	// MinimumStaffing is the penalty for staffing a shift below its minimum required headcount.
-	MinimumStaffing int `json:"minimumStaffing"`
-	// NoDoubleBooking is the penalty for assigning an employee to overlapping shifts.
-	NoDoubleBooking int `json:"noDoubleBooking"`
-	// RestBetweenShifts is the penalty for violating the required rest between consecutive shifts.
-	RestBetweenShifts int `json:"restBetweenShifts"`
-	// EmployeeAvailability is the penalty for assigning an employee outside their declared availability.
-	EmployeeAvailability int `json:"employeeAvailability"`
-	// ShiftPreferences is the reward/penalty weight for honoring employees' shift preferences.
-	ShiftPreferences int `json:"shiftPreferences"`
-	// CostMinimization is the weight for minimizing total staffing cost.
-	CostMinimization int `json:"costMinimization"`
-	// WorkloadBalance is the weight for balancing workload evenly across employees.
-	WorkloadBalance int `json:"workloadBalance"`
-	// Fairness is the weight for the fairness objective across fairness buckets.
-	Fairness int `json:"fairness"`
-	// MaxConsecutiveWorkDays is the penalty for exceeding the maximum consecutive working days.
-	MaxConsecutiveWorkDays int `json:"maxConsecutiveWorkDays"`
-	// MaxShiftsPerDay is the penalty for exceeding the maximum shifts per day.
-	MaxShiftsPerDay int `json:"maxShiftsPerDay"`
-	// MaxWorkingDaysPerWeek is the penalty for exceeding the maximum working days per week.
-	MaxWorkingDaysPerWeek int `json:"maxWorkingDaysPerWeek"`
-	// ContractRestBetweenShifts is the penalty for violating the contract's minimum rest between shifts.
-	ContractRestBetweenShifts int `json:"contractRestBetweenShifts"`
-	// EarliestShiftStart is the penalty for starting a shift before the contract's earliest allowed start.
-	EarliestShiftStart int `json:"earliestShiftStart"`
-	// LatestShiftStart is the penalty for starting a shift after the contract's latest allowed start.
-	LatestShiftStart int `json:"latestShiftStart"`
-	// MinimumConsecutiveDaysOff is the penalty for providing fewer than the minimum consecutive days off.
-	MinimumConsecutiveDaysOff int `json:"minimumConsecutiveDaysOff"`
-	// PeriodRuleViolation is the penalty for violating an employee's period-specific rule.
-	PeriodRuleViolation int `json:"periodRuleViolation"`
-	// DesiredSkills is the weight for preferring employees who hold a shift's desired skills.
-	DesiredSkills int `json:"desiredSkills"`
-	// DesiredDayOff is the weight for honoring employees' desired day-off requests.
-	DesiredDayOff int `json:"desiredDayOff"`
-	// ShiftOffRequest is the weight for honoring employees' shift-off requests.
-	ShiftOffRequest int `json:"shiftOffRequest"`
-	// BalanceTimeWorked is the weight for balancing total time worked across employees.
-	BalanceTimeWorked int `json:"balanceTimeWorked"`
-	// EmployeeAffinity is the weight for keeping tagged employees working together.
-	EmployeeAffinity int `json:"employeeAffinity"`
-	// AvoidShiftCloseToDayOff is the weight for avoiding shifts scheduled immediately adjacent to a day off.
-	AvoidShiftCloseToDayOff int `json:"avoidShiftCloseToDayOff"`
-}
-
-// Options represents solver options for the shift optimizer.
-type Options struct {
-	// PartialPlanning, when true, keeps existing assignments and only fills the gaps.
-	PartialPlanning *bool `json:"partialPlanning,omitempty"`
-	// MaxIterations is the maximum number of solver iterations before stopping.
-	MaxIterations *int `json:"maxIterations,omitempty"`
-	// TimeLimit is the maximum solve time in seconds.
-	TimeLimit *int `json:"timeLimit,omitempty"`
+// SolverOptions holds optional termination controls for a shift solve, expressed
+// as ISO-8601 durations. It corresponds to the API's ShiftSolverOptions.
+type SolverOptions struct {
+	// SpentLimit is the maximum total time the solver may run (e.g. PT30S), as an ISO-8601 duration.
+	SpentLimit *string `json:"spentLimit,omitempty"`
+	// UnimprovedSpentLimit stops the solver early after this much time passes with no score improvement (e.g. PT5S).
+	UnimprovedSpentLimit *string `json:"unimprovedSpentLimit,omitempty"`
 }
 
 // Fairness represents fairness configuration for the shift optimizer.
@@ -210,72 +134,56 @@ type Fairness struct {
 	FairnessBuckets []FairnessBucket `json:"fairnessBuckets,omitempty"`
 }
 
-// FairnessBucket represents a fairness bucket grouping employees and shifts.
+// FairnessBucket represents a fairness bucket for shift distribution.
 type FairnessBucket struct {
 	// Name is the name identifier for the fairness bucket.
 	Name *string `json:"name,omitempty"`
-	// Employees is the list of employee names in this bucket.
-	Employees []string `json:"employees,omitempty"`
+	// EmployeeIDs are the ids of the employees in this bucket.
+	EmployeeIDs []string `json:"employeeIds,omitempty"`
 	// Shifts is the list of shift names in this bucket.
 	Shifts []string `json:"shifts,omitempty"`
 	// Period is the time period for this bucket (e.g. 2024-01-01/2024-01-08).
 	Period *string `json:"period,omitempty"`
 }
 
-// DayOffRequest represents an employee's request for a day off.
-type DayOffRequest struct {
-	// ID is the optional caller-supplied identifier for the request.
+// ShiftTimeOffRequest is an employee's request to be given a period off. Soft:
+// the solver honors it when it can.
+type ShiftTimeOffRequest struct {
+	// ID is the caller-supplied identifier for the request.
 	ID *string `json:"id,omitempty"`
-	// EmployeeName is the name of the employee making the request.
-	EmployeeName *string `json:"employeeName,omitempty"`
-	// Date is the requested day off, as an ISO-8601 date.
-	Date *string `json:"date,omitempty"`
-	// Weight is the strength of the preference; higher values make honoring it more important.
-	Weight int `json:"weight"`
-}
-
-// ShiftOffRequest represents an employee's request to be off a specific shift.
-type ShiftOffRequest struct {
-	// ID is the optional caller-supplied identifier.
-	ID *string `json:"id,omitempty"`
-	// EmployeeName is the name of the employee making the request.
-	EmployeeName *string `json:"employeeName,omitempty"`
-	// ShiftName is the name of the shift the employee wants to avoid.
-	ShiftName *string `json:"shiftName,omitempty"`
-	// Weight is the strength of the preference; higher values make honoring it more important.
-	Weight int `json:"weight"`
-}
-
-// PeriodRule represents a period-based working constraint.
-type PeriodRule struct {
-	// Period is the planning period this rule applies to.
-	Period *PlanningPeriod `json:"period,omitempty"`
-	// MaxWorkingDays is the maximum working days allowed within the period.
-	MaxWorkingDays int `json:"maxWorkingDays"`
-	// MinWorkingDays is the minimum working days required within the period.
-	MinWorkingDays int `json:"minWorkingDays"`
-	// MinWorkingDuration is the minimum total working time within the period.
-	MinWorkingDuration *string `json:"minWorkingDuration,omitempty"`
-	// MaxWorkingDuration is the maximum total working time within the period.
-	MaxWorkingDuration *string `json:"maxWorkingDuration,omitempty"`
-	// MinRestDurationBetweenShiftsSameDay is the minimum rest between shifts on the same day.
-	MinRestDurationBetweenShiftsSameDay *string `json:"minRestDurationBetweenShiftsSameDay,omitempty"`
-	// MinRestDuration is the minimum rest between consecutive shifts.
-	MinRestDuration *string `json:"minRestDuration,omitempty"`
-}
-
-// PlanningPeriod represents a time period for planning rules.
-type PlanningPeriod struct {
-	// From is the start of the period.
+	// EmployeeID is the id of the employee making the request.
+	EmployeeID *string `json:"employeeId,omitempty"`
+	// From is the start of the requested period off, as an ISO-8601 timestamp.
 	From *string `json:"from,omitempty"`
-	// To is the end of the period.
+	// To is the end of the requested period off, as an ISO-8601 timestamp.
 	To *string `json:"to,omitempty"`
 }
 
-// ConstraintWeightOverrides represents overrides for constraint weights.
-type ConstraintWeightOverrides struct {
-	// KnownConstraintNames are the names of constraints the solver is expected to recognize and apply.
-	KnownConstraintNames []string `json:"knownConstraintNames,omitempty"`
+// ShiftUnavailability is a period an employee cannot work. Hard: unlike a
+// time-off request, which the solver only tries to honor, it will never assign
+// a shift overlapping this period.
+type ShiftUnavailability struct {
+	// ID is the caller-supplied identifier for the unavailability.
+	ID *string `json:"id,omitempty"`
+	// EmployeeID is the id of the unavailable employee.
+	EmployeeID *string `json:"employeeId,omitempty"`
+	// From is the start of the unavailable period, as an ISO-8601 timestamp.
+	From *string `json:"from,omitempty"`
+	// To is the end of the unavailable period, as an ISO-8601 timestamp.
+	To *string `json:"to,omitempty"`
+}
+
+// ShiftOffRequest is an employee's request to not be assigned a specific shift.
+type ShiftOffRequest struct {
+	// ID is the caller-supplied identifier for the request.
+	ID *string `json:"id,omitempty"`
+	// EmployeeID is the id of the employee making the request.
+	EmployeeID *string `json:"employeeId,omitempty"`
+	// ShiftName is the name of the shift the employee wants to avoid.
+	ShiftName *string `json:"shiftName,omitempty"`
+	// Weight is the strength of the preference; higher values make honoring it more important.
+	// Omit for the solver default (1).
+	Weight *int `json:"weight,omitempty"`
 }
 
 // ShiftStartResponse is the response from starting a shift optimization.
@@ -291,38 +199,38 @@ type ShiftStartResponse struct {
 }
 
 // ShiftResultResponse is the response from getting shift optimization results.
-// It corresponds to the API's ShiftAssignmentResponse: a full echo of the
-// request PLUS the result fields (feasible, scoreString, score,
-// unassignedShifts, assignedShifts). It carries no jobId.
+// It corresponds to the API's ShiftAssignmentResponse: the echoed input PLUS
+// the solution (feasible, scoreString, score, unassignedShifts, assignedShifts).
+// Each shift carries its own AssignedEmployee; there is no employee-side
+// back-reference. It carries no jobId on the wire.
 type ShiftResultResponse struct {
 	// JobID is the public job identifier this result was fetched with (stamped client-side).
 	JobID *string `json:"jobId,omitempty"`
-	// ID is the echoed plan identifier.
+	// ID is the identifier of the solved plan.
 	ID *string `json:"id,omitempty"`
-	// Name is the echoed plan display name.
+	// Name is the echoed plan name.
 	Name *string `json:"name,omitempty"`
-	// Description is the echoed free-text plan description.
+	// Description is the echoed plan description.
 	Description *string `json:"description,omitempty"`
-	// Contracts are the echoed contracts defining the working-time rules referenced by employees.
+	// Contracts are the echoed contracts from the request.
 	Contracts []Contract `json:"contracts,omitempty"`
-	// Shifts are the echoed shifts that need to be staffed.
-	Shifts []ShiftAssignment `json:"shifts,omitempty"`
-	// Employees are the employees with their assigned shifts populated by the solver.
+	// Employees are the echoed employees from the request.
 	Employees []ShiftEmployee `json:"employees,omitempty"`
-	// DayOffRequests are the echoed employee requests to have specific days off.
-	DayOffRequests []DayOffRequest `json:"dayOffRequests,omitempty"`
-	// ShiftOffRequests are the echoed employee requests to avoid specific shifts.
+	// Shifts are all shifts with their assignments populated by the solver.
+	Shifts []ShiftAssignment `json:"shifts,omitempty"`
+	// TimeOffRequests are the echoed time-off requests from the request.
+	TimeOffRequests []ShiftTimeOffRequest `json:"timeOffRequests,omitempty"`
+	// Unavailabilities are the echoed unavailabilities from the request.
+	Unavailabilities []ShiftUnavailability `json:"unavailabilities,omitempty"`
+	// ShiftOffRequests are the echoed shift-off requests from the request.
 	ShiftOffRequests []ShiftOffRequest `json:"shiftOffRequests,omitempty"`
-	// Options are the echoed controls governing how the shift solver runs.
-	Options *Options `json:"options,omitempty"`
-	// Weights are the echoed per-constraint penalty weights that steer the solver's objective.
-	Weights *Weights `json:"weights,omitempty"`
 	// Fairness is the echoed fairness configuration.
 	Fairness *Fairness `json:"fairness,omitempty"`
-	// Hook is the echoed callback URL invoked when solving completes.
+	// Hook is the echoed completion callback URL.
 	Hook *string `json:"hook,omitempty"`
-	// ConstraintWeightOverrides are the echoed advanced knobs for the shift constraint set.
-	ConstraintWeightOverrides *ConstraintWeightOverrides `json:"constraintWeightOverrides,omitempty"`
+	// ConstraintWeightOverrides are the echoed per-constraint weight overrides, keyed by
+	// constraint name with a Xhard/Ymedium/Zsoft value.
+	ConstraintWeightOverrides map[string]string `json:"constraintWeightOverrides,omitempty"`
 	// Feasible reports whether the returned solution satisfies all hard constraints.
 	Feasible *bool `json:"feasible,omitempty"`
 	// ScoreString is the final score as a solver score string.

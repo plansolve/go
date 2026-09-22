@@ -14,8 +14,8 @@ func intPtr(i int) *int {
 	return &i
 }
 
-func boolPtr(b bool) *bool {
-	return &b
+func float64Ptr(f float64) *float64 {
+	return &f
 }
 
 func TestCanConstructShiftRequest(t *testing.T) {
@@ -25,14 +25,16 @@ func TestCanConstructShiftRequest(t *testing.T) {
 		Description: strPtr("Week 3 shift planning"),
 		Contracts: []Contract{
 			{
-				Name:                         strPtr("full-time"),
-				Max:                          strPtr("PT40H"),
-				Min:                          strPtr("PT32H"),
-				MaxConsecutiveWorkDays:       5,
-				MaxShiftsDay:                 2,
-				MaxWorkingDays:               5,
-				MinimumConsecutiveDaysOff:    2,
-				MinimumHoursOffBetweenShifts: 11,
+				Name:                   strPtr("FULL_TIME"),
+				MinWorkDurationPerWeek: strPtr("PT32H"),
+				MaxWorkDurationPerWeek: strPtr("PT40H"),
+				MaxConsecutiveWorkDays: intPtr(5),
+				MaxShiftsDay:           intPtr(1),
+				MinRestBetweenShifts:   strPtr("PT11H"),
+				MaxWorkingDaysPerWeek:  intPtr(5),
+				EarliestShiftStart:     strPtr("06:00:00"),
+				LatestShiftEnd:         strPtr("22:00:00"),
+				MinConsecutiveDaysOff:  intPtr(2),
 			},
 		},
 		Shifts: []ShiftAssignment{
@@ -43,294 +45,69 @@ func TestCanConstructShiftRequest(t *testing.T) {
 				Skills:        []string{"Nursing"},
 				DesiredSkills: []string{"Pediatrics"},
 				Tags:          []string{"early"},
-				Cost:          150.0,
-				Value:         10,
-				Priority:      1,
+				CostFactor:    float64Ptr(1.5),
+				Value:         intPtr(2),
+				Priority:      intPtr(1),
 				PinnedByUser:  false,
 			},
 		},
 		Employees: []ShiftEmployee{
 			{
-				Name:         strPtr("Alice"),
-				Contract:     strPtr("full-time"),
-				Skills:       []string{"Nursing", "Pediatrics"},
-				LastRestDate: strPtr("2024-01-13"),
-				Availability: []string{"2024-01-15", "2024-01-16", "2024-01-17"},
-				Preference:   []string{"Morning"},
-				PeriodRules: []PeriodRule{
-					{
-						Period:             &PlanningPeriod{From: strPtr("2024-01-15"), To: strPtr("2024-01-21")},
-						MaxWorkingDays:     5,
-						MinWorkingDays:     3,
-						MinWorkingDuration: strPtr("PT24H"),
-						MaxWorkingDuration: strPtr("PT40H"),
-						MinRestDuration:    strPtr("PT11H"),
-					},
-				},
-				UnavailableDates:      []string{"2024-01-18"},
-				Tags:                  []string{"senior"},
-				MaximumMinutesPerWeek: intPtr(2400),
-				Shifts: []ShiftAssignment{
-					{Name: strPtr("Morning"), From: strPtr("2024-01-14T06:00:00"), To: strPtr("2024-01-14T14:00:00")},
-				},
+				ID:              strPtr("alice"),
+				Name:            strPtr("Alice"),
+				Contract:        strPtr("FULL_TIME"),
+				Skills:          []string{"Nursing", "Pediatrics"},
+				LastShiftEnd:    strPtr("2024-01-14T22:00:00"),
+				PreferredShifts: []string{"Morning"},
+				Tags:            []string{"senior"},
+				CostPerHour:     42.5,
 			},
 		},
-		DayOffRequests: []DayOffRequest{
-			{ID: strPtr("dor1"), EmployeeName: strPtr("Alice"), Date: strPtr("2024-01-18"), Weight: 5},
+		TimeOffRequests: []ShiftTimeOffRequest{
+			{ID: strPtr("to1"), EmployeeID: strPtr("alice"), From: strPtr("2024-01-18T00:00:00"), To: strPtr("2024-01-19T00:00:00")},
+		},
+		Unavailabilities: []ShiftUnavailability{
+			{ID: strPtr("u1"), EmployeeID: strPtr("alice"), From: strPtr("2024-01-20T00:00:00"), To: strPtr("2024-01-21T00:00:00")},
 		},
 		ShiftOffRequests: []ShiftOffRequest{
-			{ID: strPtr("sor1"), EmployeeName: strPtr("Alice"), ShiftName: strPtr("Night"), Weight: 3},
-		},
-		Hook: strPtr("https://example.com/webhook"),
-		ConstraintWeightOverrides: &ConstraintWeightOverrides{
-			KnownConstraintNames: []string{"requiredSkills", "noDoubleBooking"},
-		},
-		Options: &Options{PartialPlanning: boolPtr(true), MaxIterations: intPtr(1000), TimeLimit: intPtr(60)},
-		Weights: &Weights{
-			RequiredSkills:            10,
-			ShiftCapacity:             8,
-			MinimumStaffing:           9,
-			NoDoubleBooking:           10,
-			RestBetweenShifts:         7,
-			EmployeeAvailability:      8,
-			MaxConsecutiveWorkDays:    6,
-			MaxShiftsPerDay:           10,
-			MaxWorkingDaysPerWeek:     5,
-			ContractRestBetweenShifts: 7,
-			EarliestShiftStart:        3,
-			LatestShiftStart:          3,
-			MinimumConsecutiveDaysOff: 6,
-			PeriodRuleViolation:       5,
-			ShiftPreferences:          2,
-			CostMinimization:          4,
-			WorkloadBalance:           3,
-			Fairness:                  3,
-			DesiredSkills:             2,
-			DesiredDayOff:             4,
-			ShiftOffRequest:           4,
-			BalanceTimeWorked:         3,
-			EmployeeAffinity:         2,
-			AvoidShiftCloseToDayOff:   3,
+			{ID: strPtr("sor1"), EmployeeID: strPtr("alice"), ShiftName: strPtr("Night"), Weight: intPtr(3)},
 		},
 		Fairness: &Fairness{
 			FairnessBuckets: []FairnessBucket{
-				{Name: strPtr("weekend"), Employees: []string{"Alice", "Bob"}, Shifts: []string{"Saturday", "Sunday"}, Period: strPtr("WEEKLY")},
+				{Name: strPtr("weekend"), EmployeeIDs: []string{"alice", "bob"}, Shifts: []string{"Saturday", "Sunday"}, Period: strPtr("2024-01-15/2024-01-22")},
 			},
 		},
+		Hook:    strPtr("https://example.com/webhook"),
+		Weights: map[string]string{"shiftOffRequest": "0hard/0medium/4soft"},
+		Options: &SolverOptions{SpentLimit: strPtr("PT30S"), UnimprovedSpentLimit: strPtr("PT5S")},
 	}
 
 	if *request.ID != "req1" {
 		t.Errorf("expected ID 'req1', got '%s'", *request.ID)
 	}
-	if len(request.Contracts) != 1 {
-		t.Errorf("expected 1 contract, got %d", len(request.Contracts))
+	if len(request.Contracts) != 1 || *request.Contracts[0].MaxConsecutiveWorkDays != 5 {
+		t.Errorf("expected 1 contract with maxConsecutiveWorkDays 5, got %v", request.Contracts)
 	}
-	if len(request.Shifts) != 1 {
-		t.Errorf("expected 1 shift, got %d", len(request.Shifts))
+	if len(request.Shifts) != 1 || *request.Shifts[0].Value != 2 {
+		t.Errorf("expected 1 shift with value 2, got %v", request.Shifts)
 	}
-	if len(request.Employees) != 1 {
-		t.Errorf("expected 1 employee, got %d", len(request.Employees))
+	if len(request.Employees) != 1 || request.Employees[0].CostPerHour != 42.5 {
+		t.Errorf("expected 1 employee with costPerHour 42.5, got %v", request.Employees)
 	}
-	if len(request.DayOffRequests) != 1 {
-		t.Errorf("expected 1 day off request, got %d", len(request.DayOffRequests))
+	if len(request.TimeOffRequests) != 1 {
+		t.Errorf("expected 1 time-off request, got %d", len(request.TimeOffRequests))
 	}
-	if len(request.ShiftOffRequests) != 1 {
-		t.Errorf("expected 1 shift off request, got %d", len(request.ShiftOffRequests))
+	if len(request.Unavailabilities) != 1 {
+		t.Errorf("expected 1 unavailability, got %d", len(request.Unavailabilities))
 	}
-	if *request.Hook != "https://example.com/webhook" {
-		t.Errorf("expected hook 'https://example.com/webhook', got '%s'", *request.Hook)
+	if len(request.ShiftOffRequests) != 1 || *request.ShiftOffRequests[0].EmployeeID != "alice" {
+		t.Errorf("expected 1 shift-off request for 'alice', got %v", request.ShiftOffRequests)
 	}
-	if len(request.ConstraintWeightOverrides.KnownConstraintNames) != 2 {
-		t.Errorf("expected 2 known constraint names, got %d", len(request.ConstraintWeightOverrides.KnownConstraintNames))
+	if request.Weights["shiftOffRequest"] != "0hard/0medium/4soft" {
+		t.Errorf("expected weights to round-trip, got %v", request.Weights)
 	}
-}
-
-func TestCanConstructContractWithNewFields(t *testing.T) {
-	contract := Contract{
-		Name:                         strPtr("full-time"),
-		Max:                          strPtr("PT40H"),
-		Min:                          strPtr("PT32H"),
-		MaxConsecutiveWorkDays:       5,
-		MaxShiftsDay:                 2,
-		MinRestBetweenShiftsSameDay:  strPtr("PT4H"),
-		MaxWorkingDays:               5,
-		LatestShiftStart:             strPtr("22:00"),
-		EarliestShiftStart:           strPtr("06:00"),
-		MinimumConsecutiveDaysOff:    2,
-		MinimumHoursOffBetweenShifts: 11,
-	}
-
-	if contract.MinimumConsecutiveDaysOff != 2 {
-		t.Errorf("expected minimumConsecutiveDaysOff 2, got %d", contract.MinimumConsecutiveDaysOff)
-	}
-	if contract.MinimumHoursOffBetweenShifts != 11 {
-		t.Errorf("expected minimumHoursOffBetweenShifts 11, got %d", contract.MinimumHoursOffBetweenShifts)
-	}
-	if *contract.Name != "full-time" {
-		t.Errorf("expected name 'full-time', got '%s'", *contract.Name)
-	}
-}
-
-func TestCanConstructShiftAssignmentWithNewFields(t *testing.T) {
-	sa := ShiftAssignment{
-		Name:          strPtr("Morning"),
-		From:          strPtr("2024-01-15T06:00:00"),
-		To:            strPtr("2024-01-15T14:00:00"),
-		Skills:        []string{"Nursing"},
-		DesiredSkills: []string{"Pediatrics", "ICU"},
-		Tags:          []string{"early", "weekday"},
-		Cost:          200.0,
-		Value:         10,
-		Priority:      1,
-		PinnedByUser:  true,
-	}
-
-	if len(sa.DesiredSkills) != 2 {
-		t.Errorf("expected 2 desired skills, got %d", len(sa.DesiredSkills))
-	}
-	found := false
-	for _, s := range sa.DesiredSkills {
-		if s == "Pediatrics" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected desired skills to contain 'Pediatrics'")
-	}
-	if len(sa.Tags) != 2 {
-		t.Errorf("expected 2 tags, got %d", len(sa.Tags))
-	}
-	if !sa.PinnedByUser {
-		t.Errorf("expected pinnedByUser to be true")
-	}
-}
-
-func TestCanConstructShiftEmployeeWithNewFields(t *testing.T) {
-	employee := ShiftEmployee{
-		Name:         strPtr("Bob"),
-		Contract:     strPtr("part-time"),
-		Skills:       []string{"Nursing"},
-		LastRestDate: strPtr("2024-01-13"),
-		Availability: []string{"2024-01-15"},
-		Preference:   []string{"Morning"},
-		PeriodRules: []PeriodRule{
-			{
-				Period:                              &PlanningPeriod{From: strPtr("2024-01-15"), To: strPtr("2024-01-21")},
-				MaxWorkingDays:                      3,
-				MinWorkingDays:                      1,
-				MinWorkingDuration:                  strPtr("PT8H"),
-				MaxWorkingDuration:                  strPtr("PT24H"),
-				MinRestDurationBetweenShiftsSameDay: strPtr("PT4H"),
-				MinRestDuration:                     strPtr("PT11H"),
-			},
-		},
-		UnavailableDates:      []string{"2024-01-17", "2024-01-18"},
-		Tags:                  []string{"junior", "trainee"},
-		MaximumMinutesPerWeek: intPtr(1200),
-		Shifts: []ShiftAssignment{
-			{Name: strPtr("Morning"), From: strPtr("2024-01-14T06:00:00"), To: strPtr("2024-01-14T14:00:00")},
-		},
-	}
-
-	if len(employee.PeriodRules) != 1 {
-		t.Fatalf("expected 1 period rule, got %d", len(employee.PeriodRules))
-	}
-	if *employee.PeriodRules[0].Period.From != "2024-01-15" {
-		t.Errorf("expected period from '2024-01-15', got '%s'", *employee.PeriodRules[0].Period.From)
-	}
-	if *employee.PeriodRules[0].Period.To != "2024-01-21" {
-		t.Errorf("expected period to '2024-01-21', got '%s'", *employee.PeriodRules[0].Period.To)
-	}
-	if employee.PeriodRules[0].MaxWorkingDays != 3 {
-		t.Errorf("expected maxWorkingDays 3, got %d", employee.PeriodRules[0].MaxWorkingDays)
-	}
-	if *employee.PeriodRules[0].MinRestDurationBetweenShiftsSameDay != "PT4H" {
-		t.Errorf("expected minRestDurationBetweenShiftsSameDay 'PT4H', got '%s'", *employee.PeriodRules[0].MinRestDurationBetweenShiftsSameDay)
-	}
-	if len(employee.UnavailableDates) != 2 {
-		t.Errorf("expected 2 unavailable dates, got %d", len(employee.UnavailableDates))
-	}
-	if len(employee.Tags) != 2 {
-		t.Errorf("expected 2 tags, got %d", len(employee.Tags))
-	}
-	if *employee.MaximumMinutesPerWeek != 1200 {
-		t.Errorf("expected maximumMinutesPerWeek 1200, got %d", *employee.MaximumMinutesPerWeek)
-	}
-	if len(employee.Shifts) != 1 {
-		t.Errorf("expected 1 shift, got %d", len(employee.Shifts))
-	}
-}
-
-func TestCanConstructWeightsWithAllFields(t *testing.T) {
-	weights := Weights{
-		RequiredSkills:            10,
-		ShiftCapacity:             8,
-		MinimumStaffing:           9,
-		NoDoubleBooking:           10,
-		RestBetweenShifts:         7,
-		EmployeeAvailability:      8,
-		MaxConsecutiveWorkDays:    6,
-		MaxShiftsPerDay:           10,
-		MaxWorkingDaysPerWeek:     5,
-		ContractRestBetweenShifts: 7,
-		EarliestShiftStart:        3,
-		LatestShiftStart:          3,
-		MinimumConsecutiveDaysOff: 6,
-		PeriodRuleViolation:       5,
-		ShiftPreferences:          2,
-		CostMinimization:          4,
-		WorkloadBalance:           3,
-		Fairness:                  3,
-		DesiredSkills:             2,
-		DesiredDayOff:             4,
-		ShiftOffRequest:           4,
-		BalanceTimeWorked:         3,
-		EmployeeAffinity:         2,
-		AvoidShiftCloseToDayOff:   3,
-	}
-
-	if weights.MaxConsecutiveWorkDays != 6 {
-		t.Errorf("expected maxConsecutiveWorkDays 6, got %d", weights.MaxConsecutiveWorkDays)
-	}
-	if weights.MaxShiftsPerDay != 10 {
-		t.Errorf("expected maxShiftsPerDay 10, got %d", weights.MaxShiftsPerDay)
-	}
-	if weights.MaxWorkingDaysPerWeek != 5 {
-		t.Errorf("expected maxWorkingDaysPerWeek 5, got %d", weights.MaxWorkingDaysPerWeek)
-	}
-	if weights.ContractRestBetweenShifts != 7 {
-		t.Errorf("expected contractRestBetweenShifts 7, got %d", weights.ContractRestBetweenShifts)
-	}
-	if weights.EarliestShiftStart != 3 {
-		t.Errorf("expected earliestShiftStart 3, got %d", weights.EarliestShiftStart)
-	}
-	if weights.LatestShiftStart != 3 {
-		t.Errorf("expected latestShiftStart 3, got %d", weights.LatestShiftStart)
-	}
-	if weights.MinimumConsecutiveDaysOff != 6 {
-		t.Errorf("expected minimumConsecutiveDaysOff 6, got %d", weights.MinimumConsecutiveDaysOff)
-	}
-	if weights.PeriodRuleViolation != 5 {
-		t.Errorf("expected periodRuleViolation 5, got %d", weights.PeriodRuleViolation)
-	}
-	if weights.DesiredSkills != 2 {
-		t.Errorf("expected desiredSkills 2, got %d", weights.DesiredSkills)
-	}
-	if weights.DesiredDayOff != 4 {
-		t.Errorf("expected desiredDayOff 4, got %d", weights.DesiredDayOff)
-	}
-	if weights.ShiftOffRequest != 4 {
-		t.Errorf("expected shiftOffRequest 4, got %d", weights.ShiftOffRequest)
-	}
-	if weights.BalanceTimeWorked != 3 {
-		t.Errorf("expected balanceTimeWorked 3, got %d", weights.BalanceTimeWorked)
-	}
-	if weights.EmployeeAffinity != 2 {
-		t.Errorf("expected employeeAffinity 2, got %d", weights.EmployeeAffinity)
-	}
-	if weights.AvoidShiftCloseToDayOff != 3 {
-		t.Errorf("expected avoidShiftCloseToDayOff 3, got %d", weights.AvoidShiftCloseToDayOff)
+	if *request.Options.SpentLimit != "PT30S" {
+		t.Errorf("expected options.spentLimit 'PT30S', got '%s'", *request.Options.SpentLimit)
 	}
 }
 
@@ -338,21 +115,18 @@ func TestCanSerializeShiftRequestToJSON(t *testing.T) {
 	request := ShiftRequest{
 		ID:   strPtr("req1"),
 		Name: strPtr("Test Schedule"),
+		Contracts: []Contract{
+			{Name: strPtr("FULL_TIME"), MaxWorkDurationPerWeek: strPtr("PT40H"), MinConsecutiveDaysOff: intPtr(2)},
+		},
 		Employees: []ShiftEmployee{
 			{
-				Name:     strPtr("Alice"),
-				Contract: strPtr("full-time"),
-				Skills:   []string{"Nursing"},
-				PeriodRules: []PeriodRule{
-					{
-						Period:         &PlanningPeriod{From: strPtr("2024-01-15"), To: strPtr("2024-01-21")},
-						MaxWorkingDays: 5,
-						MinWorkingDays: 3,
-					},
-				},
-				UnavailableDates:      []string{"2024-01-18"},
-				Tags:                  []string{"senior"},
-				MaximumMinutesPerWeek: intPtr(2400),
+				ID:              strPtr("alice"),
+				Name:            strPtr("Alice"),
+				Contract:        strPtr("FULL_TIME"),
+				Skills:          []string{"Nursing"},
+				LastShiftEnd:    strPtr("2024-01-14T22:00:00"),
+				PreferredShifts: []string{"Morning"},
+				CostPerHour:     30,
 			},
 		},
 		Shifts: []ShiftAssignment{
@@ -360,19 +134,26 @@ func TestCanSerializeShiftRequestToJSON(t *testing.T) {
 				Name:          strPtr("Morning"),
 				DesiredSkills: []string{"Pediatrics"},
 				Tags:          []string{"early"},
+				CostFactor:    float64Ptr(1.25),
+				Value:         intPtr(2),
 				PinnedByUser:  true,
 			},
 		},
-		DayOffRequests: []DayOffRequest{
-			{ID: strPtr("dor1"), EmployeeName: strPtr("Alice"), Date: strPtr("2024-01-18"), Weight: 5},
+		TimeOffRequests: []ShiftTimeOffRequest{
+			{ID: strPtr("to1"), EmployeeID: strPtr("alice"), From: strPtr("2024-01-18T00:00:00"), To: strPtr("2024-01-19T00:00:00")},
+		},
+		Unavailabilities: []ShiftUnavailability{
+			{ID: strPtr("u1"), EmployeeID: strPtr("alice"), From: strPtr("2024-01-20T00:00:00"), To: strPtr("2024-01-21T00:00:00")},
 		},
 		ShiftOffRequests: []ShiftOffRequest{
-			{ID: strPtr("sor1"), EmployeeName: strPtr("Alice"), ShiftName: strPtr("Night"), Weight: 3},
+			{ID: strPtr("sor1"), EmployeeID: strPtr("alice"), ShiftName: strPtr("Night"), Weight: intPtr(3)},
 		},
-		Hook: strPtr("https://example.com/webhook"),
-		ConstraintWeightOverrides: &ConstraintWeightOverrides{
-			KnownConstraintNames: []string{"requiredSkills"},
+		Fairness: &Fairness{
+			FairnessBuckets: []FairnessBucket{{Name: strPtr("all"), EmployeeIDs: []string{"alice"}}},
 		},
+		Hook:    strPtr("https://example.com/webhook"),
+		Weights: map[string]string{"shiftOffRequest": "0hard/0medium/4soft"},
+		Options: &SolverOptions{SpentLimit: strPtr("PT30S")},
 	}
 
 	data, err := json.Marshal(request)
@@ -382,13 +163,52 @@ func TestCanSerializeShiftRequestToJSON(t *testing.T) {
 
 	jsonStr := string(data)
 	for _, expected := range []string{
-		"periodRules", "unavailableDates", "maximumMinutesPerWeek",
-		"desiredSkills", "pinnedByUser", "dayOffRequests", "shiftOffRequests",
-		"hook", "constraintWeightOverrides", "knownConstraintNames",
+		`"maxWorkDurationPerWeek":"PT40H"`, `"minConsecutiveDaysOff":2`,
+		`"id":"alice"`, `"lastShiftEnd":"2024-01-14T22:00:00"`, `"preferredShifts":["Morning"]`, `"costPerHour":30`,
+		`"contract":"FULL_TIME"`,
+		`"desiredSkills":["Pediatrics"]`, `"costFactor":1.25`, `"value":2`, `"pinnedByUser":true`,
+		`"timeOffRequests":[{"id":"to1","employeeId":"alice","from":"2024-01-18T00:00:00","to":"2024-01-19T00:00:00"}]`,
+		`"unavailabilities":[{"id":"u1","employeeId":"alice","from":"2024-01-20T00:00:00","to":"2024-01-21T00:00:00"}]`,
+		`"shiftOffRequests":[{"id":"sor1","employeeId":"alice","shiftName":"Night","weight":3}]`,
+		`"fairnessBuckets":[{"name":"all","employeeIds":["alice"]}]`,
+		`"hook":"https://example.com/webhook"`,
+		`"weights":{"shiftOffRequest":"0hard/0medium/4soft"}`,
+		`"options":{"spentLimit":"PT30S"}`,
 	} {
 		if !strings.Contains(jsonStr, expected) {
-			t.Errorf("expected JSON to contain '%s'", expected)
+			t.Errorf("expected JSON to contain '%s', got %s", expected, jsonStr)
 		}
+	}
+
+	// Unset nullable fields are omitted rather than sent as zero values.
+	for _, unexpected := range []string{
+		`"priority"`, `"maxShiftsDay"`, `"maxConsecutiveWorkDays"`, `"unimprovedSpentLimit"`, `"assignedEmployee"`,
+		`"originalName"`,
+		// Retired wire fields must not reappear.
+		`"cost"`, `"dayOffRequests"`, `"constraintWeightOverrides"`, `"employeeName"`, `"periodRules"`,
+		`"unavailableDates"`, `"maximumMinutesPerWeek"`, `"partialPlanning"`, `"timeLimit"`, `"employees":["`,
+	} {
+		if strings.Contains(jsonStr, unexpected) {
+			t.Errorf("expected JSON not to contain '%s', got %s", unexpected, jsonStr)
+		}
+	}
+}
+
+func TestEmptySolverOptionsSerializesAsEmptyObject(t *testing.T) {
+	data, err := json.Marshal(ShiftRequest{Options: &SolverOptions{}})
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if string(data) != `{"options":{}}` {
+		t.Errorf("expected nil option fields to be omitted, got %s", data)
+	}
+
+	data, err = json.Marshal(ShiftRequest{})
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if string(data) != `{}` {
+		t.Errorf("expected empty request to serialize as {}, got %s", data)
 	}
 }
 
@@ -396,25 +216,30 @@ func TestCanDeserializeShiftRequestFromJSON(t *testing.T) {
 	jsonStr := `{
 		"id": "req1",
 		"name": "Test Schedule",
+		"contracts": [
+			{
+				"name": "FULL_TIME",
+				"minWorkDurationPerWeek": "PT32H",
+				"maxWorkDurationPerWeek": "PT40H",
+				"maxConsecutiveWorkDays": 5,
+				"maxShiftsDay": 1,
+				"minRestBetweenShifts": "PT12H",
+				"maxWorkingDaysPerWeek": 5,
+				"latestShiftEnd": "22:00:00",
+				"earliestShiftStart": "06:00:00",
+				"minConsecutiveDaysOff": 2
+			}
+		],
 		"employees": [
 			{
+				"id": "alice",
 				"name": "Alice",
-				"contract": "full-time",
+				"contract": "FULL_TIME",
 				"skills": ["Nursing"],
-				"periodRules": [
-					{
-						"period": {"from": "2024-01-15", "to": "2024-01-21"},
-						"maxWorkingDays": 5,
-						"minWorkingDays": 3,
-						"minRestDuration": "PT11H"
-					}
-				],
-				"unavailableDates": ["2024-01-18"],
+				"lastShiftEnd": "2024-01-14T22:00:00",
+				"preferredShifts": ["Morning"],
 				"tags": ["senior"],
-				"maximumMinutesPerWeek": 2400,
-				"shifts": [
-					{"name": "Morning", "from": "2024-01-14T06:00:00", "to": "2024-01-14T14:00:00"}
-				]
+				"costPerHour": 42.5
 			}
 		],
 		"shifts": [
@@ -424,32 +249,25 @@ func TestCanDeserializeShiftRequestFromJSON(t *testing.T) {
 				"to": "2024-01-15T14:00:00",
 				"desiredSkills": ["Pediatrics"],
 				"tags": ["early"],
+				"costFactor": 1.5,
+				"value": 2,
+				"priority": 1,
 				"pinnedByUser": true
 			}
 		],
-		"contracts": [
-			{
-				"name": "full-time",
-				"minimumConsecutiveDaysOff": 2,
-				"minimumHoursOffBetweenShifts": 11
-			}
+		"timeOffRequests": [
+			{"id": "to1", "employeeId": "alice", "from": "2024-01-18T00:00:00", "to": "2024-01-19T00:00:00"}
 		],
-		"dayOffRequests": [
-			{"id": "dor1", "employeeName": "Alice", "date": "2024-01-18", "weight": 5}
+		"unavailabilities": [
+			{"id": "u1", "employeeId": "alice", "from": "2024-01-20T00:00:00", "to": "2024-01-21T00:00:00"}
 		],
 		"shiftOffRequests": [
-			{"id": "sor1", "employeeName": "Alice", "shiftName": "Night", "weight": 3}
+			{"id": "sor1", "employeeId": "alice", "shiftName": "Night", "weight": 3}
 		],
+		"fairness": {"fairnessBuckets": [{"name": "weekend", "employeeIds": ["alice"], "shifts": ["Saturday"]}]},
 		"hook": "https://example.com/webhook",
-		"constraintWeightOverrides": {
-			"knownConstraintNames": ["requiredSkills", "noDoubleBooking"]
-		},
-		"weights": {
-			"requiredSkills": 10,
-			"maxConsecutiveWorkDays": 6,
-			"desiredSkills": 2,
-			"avoidShiftCloseToDayOff": 3
-		}
+		"weights": {"shiftOffRequest": "0hard/0medium/4soft"},
+		"options": {"spentLimit": "PT30S", "unimprovedSpentLimit": "PT5S"}
 	}`
 
 	var result ShiftRequest
@@ -457,106 +275,47 @@ func TestCanDeserializeShiftRequestFromJSON(t *testing.T) {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if *result.ID != "req1" {
-		t.Errorf("expected ID 'req1', got '%s'", *result.ID)
+	c := result.Contracts[0]
+	if *c.MinWorkDurationPerWeek != "PT32H" || *c.MaxWorkDurationPerWeek != "PT40H" {
+		t.Errorf("unexpected contract durations: %v / %v", *c.MinWorkDurationPerWeek, *c.MaxWorkDurationPerWeek)
+	}
+	if *c.MaxConsecutiveWorkDays != 5 || *c.MaxShiftsDay != 1 || *c.MaxWorkingDaysPerWeek != 5 || *c.MinConsecutiveDaysOff != 2 {
+		t.Errorf("unexpected contract ints: %+v", c)
+	}
+	if *c.MinRestBetweenShifts != "PT12H" || *c.LatestShiftEnd != "22:00:00" || *c.EarliestShiftStart != "06:00:00" {
+		t.Errorf("unexpected contract strings: %+v", c)
 	}
 
-	// Employee new fields
-	if len(result.Employees) != 1 {
-		t.Fatalf("expected 1 employee, got %d", len(result.Employees))
+	e := result.Employees[0]
+	if *e.ID != "alice" || *e.Name != "Alice" || *e.Contract != "FULL_TIME" {
+		t.Errorf("unexpected employee identity: %+v", e)
 	}
-	if len(result.Employees[0].PeriodRules) != 1 {
-		t.Fatalf("expected 1 period rule, got %d", len(result.Employees[0].PeriodRules))
-	}
-	if *result.Employees[0].PeriodRules[0].Period.From != "2024-01-15" {
-		t.Errorf("expected period from '2024-01-15', got '%s'", *result.Employees[0].PeriodRules[0].Period.From)
-	}
-	if result.Employees[0].PeriodRules[0].MaxWorkingDays != 5 {
-		t.Errorf("expected maxWorkingDays 5, got %d", result.Employees[0].PeriodRules[0].MaxWorkingDays)
-	}
-	if *result.Employees[0].PeriodRules[0].MinRestDuration != "PT11H" {
-		t.Errorf("expected minRestDuration 'PT11H', got '%s'", *result.Employees[0].PeriodRules[0].MinRestDuration)
-	}
-	if len(result.Employees[0].UnavailableDates) != 1 {
-		t.Errorf("expected 1 unavailable date, got %d", len(result.Employees[0].UnavailableDates))
-	}
-	if result.Employees[0].Tags[0] != "senior" {
-		t.Errorf("expected tag 'senior', got '%s'", result.Employees[0].Tags[0])
-	}
-	if *result.Employees[0].MaximumMinutesPerWeek != 2400 {
-		t.Errorf("expected maximumMinutesPerWeek 2400, got %d", *result.Employees[0].MaximumMinutesPerWeek)
-	}
-	if len(result.Employees[0].Shifts) != 1 {
-		t.Errorf("expected 1 employee shift, got %d", len(result.Employees[0].Shifts))
+	if *e.LastShiftEnd != "2024-01-14T22:00:00" || len(e.PreferredShifts) != 1 || e.CostPerHour != 42.5 {
+		t.Errorf("unexpected employee fields: %+v", e)
 	}
 
-	// ShiftAssignment new fields
-	if len(result.Shifts[0].DesiredSkills) != 1 {
-		t.Fatalf("expected 1 desired skill, got %d", len(result.Shifts[0].DesiredSkills))
-	}
-	if result.Shifts[0].DesiredSkills[0] != "Pediatrics" {
-		t.Errorf("expected desired skill 'Pediatrics', got '%s'", result.Shifts[0].DesiredSkills[0])
-	}
-	if len(result.Shifts[0].Tags) != 1 {
-		t.Errorf("expected 1 tag, got %d", len(result.Shifts[0].Tags))
-	}
-	if !result.Shifts[0].PinnedByUser {
-		t.Errorf("expected pinnedByUser to be true")
+	s := result.Shifts[0]
+	if *s.CostFactor != 1.5 || *s.Value != 2 || *s.Priority != 1 || !s.PinnedByUser {
+		t.Errorf("unexpected shift fields: %+v", s)
 	}
 
-	// Contract new fields
-	if result.Contracts[0].MinimumConsecutiveDaysOff != 2 {
-		t.Errorf("expected minimumConsecutiveDaysOff 2, got %d", result.Contracts[0].MinimumConsecutiveDaysOff)
+	if len(result.TimeOffRequests) != 1 || *result.TimeOffRequests[0].EmployeeID != "alice" || *result.TimeOffRequests[0].From != "2024-01-18T00:00:00" {
+		t.Errorf("unexpected time-off requests: %v", result.TimeOffRequests)
 	}
-	if result.Contracts[0].MinimumHoursOffBetweenShifts != 11 {
-		t.Errorf("expected minimumHoursOffBetweenShifts 11, got %d", result.Contracts[0].MinimumHoursOffBetweenShifts)
+	if len(result.Unavailabilities) != 1 || *result.Unavailabilities[0].ID != "u1" || *result.Unavailabilities[0].To != "2024-01-21T00:00:00" {
+		t.Errorf("unexpected unavailabilities: %v", result.Unavailabilities)
 	}
-
-	// DayOffRequests
-	if len(result.DayOffRequests) != 1 {
-		t.Fatalf("expected 1 day off request, got %d", len(result.DayOffRequests))
+	if *result.ShiftOffRequests[0].EmployeeID != "alice" || *result.ShiftOffRequests[0].Weight != 3 {
+		t.Errorf("unexpected shift-off request: %+v", result.ShiftOffRequests[0])
 	}
-	if *result.DayOffRequests[0].ID != "dor1" {
-		t.Errorf("expected day off request ID 'dor1', got '%s'", *result.DayOffRequests[0].ID)
+	if result.Fairness.FairnessBuckets[0].EmployeeIDs[0] != "alice" {
+		t.Errorf("expected fairness bucket employeeIds ['alice'], got %v", result.Fairness.FairnessBuckets[0].EmployeeIDs)
 	}
-	if *result.DayOffRequests[0].EmployeeName != "Alice" {
-		t.Errorf("expected employee name 'Alice', got '%s'", *result.DayOffRequests[0].EmployeeName)
+	if result.Weights["shiftOffRequest"] != "0hard/0medium/4soft" {
+		t.Errorf("unexpected weights: %v", result.Weights)
 	}
-	if result.DayOffRequests[0].Weight != 5 {
-		t.Errorf("expected weight 5, got %d", result.DayOffRequests[0].Weight)
-	}
-
-	// ShiftOffRequests
-	if len(result.ShiftOffRequests) != 1 {
-		t.Fatalf("expected 1 shift off request, got %d", len(result.ShiftOffRequests))
-	}
-	if *result.ShiftOffRequests[0].ID != "sor1" {
-		t.Errorf("expected shift off request ID 'sor1', got '%s'", *result.ShiftOffRequests[0].ID)
-	}
-	if *result.ShiftOffRequests[0].ShiftName != "Night" {
-		t.Errorf("expected shift name 'Night', got '%s'", *result.ShiftOffRequests[0].ShiftName)
-	}
-
-	// Hook and overrides
-	if *result.Hook != "https://example.com/webhook" {
-		t.Errorf("expected hook 'https://example.com/webhook', got '%s'", *result.Hook)
-	}
-	if len(result.ConstraintWeightOverrides.KnownConstraintNames) != 2 {
-		t.Errorf("expected 2 known constraint names, got %d", len(result.ConstraintWeightOverrides.KnownConstraintNames))
-	}
-
-	// Weights new fields
-	if result.Weights.RequiredSkills != 10 {
-		t.Errorf("expected requiredSkills 10, got %d", result.Weights.RequiredSkills)
-	}
-	if result.Weights.MaxConsecutiveWorkDays != 6 {
-		t.Errorf("expected maxConsecutiveWorkDays 6, got %d", result.Weights.MaxConsecutiveWorkDays)
-	}
-	if result.Weights.DesiredSkills != 2 {
-		t.Errorf("expected desiredSkills 2, got %d", result.Weights.DesiredSkills)
-	}
-	if result.Weights.AvoidShiftCloseToDayOff != 3 {
-		t.Errorf("expected avoidShiftCloseToDayOff 3, got %d", result.Weights.AvoidShiftCloseToDayOff)
+	if *result.Options.SpentLimit != "PT30S" || *result.Options.UnimprovedSpentLimit != "PT5S" {
+		t.Errorf("unexpected options: %+v", result.Options)
 	}
 }
 
@@ -567,16 +326,16 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 		"score": {"hardScore": 0, "softScore": -120},
 		"assignedShifts": [
 			{
-				"name": "Morning",
+				"name": "Morning#1",
 				"from": "2024-01-15T06:00:00",
 				"to": "2024-01-15T14:00:00",
 				"skills": ["Nursing"],
-				"desiredSkills": ["Pediatrics"],
-				"tags": ["early"],
-				"cost": 150.0,
-				"value": 10,
+				"costFactor": 1.0,
+				"value": 1,
 				"priority": 1,
-				"pinnedByUser": false
+				"originalName": "Morning",
+				"pinnedByUser": false,
+				"assignedEmployee": "alice"
 			}
 		],
 		"unassignedShifts": [
@@ -584,21 +343,12 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 				"name": "Night",
 				"from": "2024-01-15T22:00:00",
 				"to": "2024-01-16T06:00:00",
-				"cost": 200.0,
-				"value": 5,
-				"priority": 2,
-				"pinnedByUser": false
+				"pinnedByUser": false,
+				"assignedEmployee": null
 			}
 		],
 		"employees": [
-			{
-				"name": "Alice",
-				"contract": "full-time",
-				"skills": ["Nursing", "Pediatrics"],
-				"shifts": [
-					{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00"}
-				]
-			}
+			{"id": "alice", "name": "Alice", "contract": "FULL_TIME", "skills": ["Nursing"], "costPerHour": 30}
 		]
 	}`
 
@@ -620,31 +370,29 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 	if len(result.AssignedShifts) != 1 {
 		t.Fatalf("expected 1 assigned shift, got %d", len(result.AssignedShifts))
 	}
-	if *result.AssignedShifts[0].Name != "Morning" {
-		t.Errorf("expected assigned shift name 'Morning', got '%s'", *result.AssignedShifts[0].Name)
+	assigned := result.AssignedShifts[0]
+	if assigned.AssignedEmployee == nil || *assigned.AssignedEmployee != "alice" {
+		t.Errorf("expected assignedEmployee 'alice', got %v", assigned.AssignedEmployee)
 	}
-	if *result.AssignedShifts[0].From != "2024-01-15T06:00:00" {
-		t.Errorf("expected assigned shift from '2024-01-15T06:00:00', got '%s'", *result.AssignedShifts[0].From)
+	if assigned.OriginalName == nil || *assigned.OriginalName != "Morning" {
+		t.Errorf("expected originalName 'Morning', got %v", assigned.OriginalName)
 	}
-	if result.AssignedShifts[0].Cost != 150.0 {
-		t.Errorf("expected assigned shift cost 150.0, got %f", result.AssignedShifts[0].Cost)
+	if assigned.CostFactor == nil || *assigned.CostFactor != 1.0 {
+		t.Errorf("expected costFactor 1.0, got %v", assigned.CostFactor)
 	}
 
 	if len(result.UnassignedShifts) != 1 {
 		t.Fatalf("expected 1 unassigned shift, got %d", len(result.UnassignedShifts))
 	}
-	if *result.UnassignedShifts[0].Name != "Night" {
-		t.Errorf("expected unassigned shift name 'Night', got '%s'", *result.UnassignedShifts[0].Name)
+	if result.UnassignedShifts[0].AssignedEmployee != nil {
+		t.Errorf("expected unassigned shift to have nil assignedEmployee, got %v", *result.UnassignedShifts[0].AssignedEmployee)
+	}
+	if result.UnassignedShifts[0].Value != nil || result.UnassignedShifts[0].Priority != nil {
+		t.Errorf("expected absent value/priority to stay nil")
 	}
 
-	if len(result.Employees) != 1 {
-		t.Fatalf("expected 1 employee, got %d", len(result.Employees))
-	}
-	if *result.Employees[0].Name != "Alice" {
-		t.Errorf("expected employee name 'Alice', got '%s'", *result.Employees[0].Name)
-	}
-	if len(result.Employees[0].Shifts) != 1 {
-		t.Errorf("expected 1 employee shift, got %d", len(result.Employees[0].Shifts))
+	if len(result.Employees) != 1 || *result.Employees[0].ID != "alice" || result.Employees[0].CostPerHour != 30 {
+		t.Errorf("unexpected employees: %v", result.Employees)
 	}
 }
 
@@ -654,23 +402,32 @@ func TestShiftResultResponseEchoesRequestFields(t *testing.T) {
 		"name": "Weekly Schedule",
 		"description": "Week 3",
 		"contracts": [
-			{"name": "full-time", "minimumConsecutiveDaysOff": 2, "minimumHoursOffBetweenShifts": 11}
+			{"name": "FULL_TIME", "minConsecutiveDaysOff": 2, "minRestBetweenShifts": "PT11H"}
 		],
 		"shifts": [
-			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00"}
+			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00", "pinnedByUser": false, "assignedEmployee": "alice"}
 		],
-		"options": {"partialPlanning": true, "timeLimit": 60},
-		"weights": {"requiredSkills": 10},
+		"timeOffRequests": [
+			{"id": "to1", "employeeId": "alice", "from": "2024-01-18T00:00:00", "to": "2024-01-19T00:00:00"}
+		],
+		"unavailabilities": [
+			{"id": "u1", "employeeId": "bob", "from": "2024-01-20T00:00:00", "to": "2024-01-21T00:00:00"}
+		],
+		"shiftOffRequests": [
+			{"id": "sor1", "employeeId": "alice", "shiftName": "Night"}
+		],
+		"fairness": {"fairnessBuckets": [{"name": "all", "employeeIds": ["alice", "bob"]}]},
 		"hook": "https://example.com/webhook",
+		"constraintWeightOverrides": {"shiftOffRequest": "0hard/0medium/4soft"},
 		"feasible": true,
 		"scoreString": "0hard/-120soft",
 		"score": {"hardScore": 0, "softScore": -120},
 		"assignedShifts": [
-			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00"}
+			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00", "pinnedByUser": false, "assignedEmployee": "alice"}
 		],
 		"unassignedShifts": [],
 		"employees": [
-			{"name": "Alice", "contract": "full-time", "skills": ["Nursing"], "shifts": []}
+			{"id": "alice", "name": "Alice", "contract": "FULL_TIME", "skills": ["Nursing"], "costPerHour": 0}
 		]
 	}`
 
@@ -686,17 +443,26 @@ func TestShiftResultResponseEchoesRequestFields(t *testing.T) {
 	if result.Name == nil || *result.Name != "Weekly Schedule" {
 		t.Errorf("expected echoed name, got %v", result.Name)
 	}
-	if len(result.Contracts) != 1 || result.Contracts[0].MinimumConsecutiveDaysOff != 2 {
+	if len(result.Contracts) != 1 || result.Contracts[0].MinConsecutiveDaysOff == nil || *result.Contracts[0].MinConsecutiveDaysOff != 2 {
 		t.Errorf("expected echoed contracts, got %v", result.Contracts)
 	}
-	if len(result.Shifts) != 1 {
-		t.Errorf("expected echoed shifts, got %d", len(result.Shifts))
+	if len(result.Shifts) != 1 || *result.Shifts[0].AssignedEmployee != "alice" {
+		t.Errorf("expected echoed shifts with assignedEmployee, got %v", result.Shifts)
 	}
-	if result.Options == nil || result.Options.PartialPlanning == nil || !*result.Options.PartialPlanning {
-		t.Errorf("expected echoed options.partialPlanning true, got %v", result.Options)
+	if len(result.TimeOffRequests) != 1 || *result.TimeOffRequests[0].ID != "to1" {
+		t.Errorf("expected echoed timeOffRequests, got %v", result.TimeOffRequests)
 	}
-	if result.Weights == nil || result.Weights.RequiredSkills != 10 {
-		t.Errorf("expected echoed weights.requiredSkills 10, got %v", result.Weights)
+	if len(result.Unavailabilities) != 1 || *result.Unavailabilities[0].EmployeeID != "bob" {
+		t.Errorf("expected echoed unavailabilities, got %v", result.Unavailabilities)
+	}
+	if len(result.ShiftOffRequests) != 1 || result.ShiftOffRequests[0].Weight != nil {
+		t.Errorf("expected echoed shiftOffRequests with nil weight, got %v", result.ShiftOffRequests)
+	}
+	if result.Fairness == nil || len(result.Fairness.FairnessBuckets[0].EmployeeIDs) != 2 {
+		t.Errorf("expected echoed fairness, got %v", result.Fairness)
+	}
+	if result.ConstraintWeightOverrides["shiftOffRequest"] != "0hard/0medium/4soft" {
+		t.Errorf("expected echoed constraintWeightOverrides, got %v", result.ConstraintWeightOverrides)
 	}
 	if result.Hook == nil || *result.Hook != "https://example.com/webhook" {
 		t.Errorf("expected echoed hook, got %v", result.Hook)

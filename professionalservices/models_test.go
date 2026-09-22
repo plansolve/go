@@ -14,6 +14,10 @@ func float64Ptr(f float64) *float64 {
 	return &f
 }
 
+func intPtr(i int) *int {
+	return &i
+}
+
 func boolPtr(b bool) *bool {
 	return &b
 }
@@ -294,8 +298,8 @@ func TestCanConstructEmployeeWithNewFields(t *testing.T) {
 		Skills:            []string{"C#", "JavaScript"},
 		HourlyRate:        float64Ptr(95.50),
 		ContractID:        strPtr("contract1"),
-		TimeZoneID:        strPtr("Europe/Brussels"),
-		DedicatedClientID: strPtr("client1"),
+		FreezeUntil:       strPtr("2024-01-16T00:00:00"),
+		SkillValidity:     []SkillValidity{{Skill: "Audit", ValidFrom: strPtr("2024-01-01T00:00:00"), ValidTo: strPtr("2025-01-01T00:00:00")}},
 		Shifts: []Shift{
 			{ID: "shift1", MinStartTime: "2024-01-15T08:00:00", MaxEndTime: "2024-01-15T18:00:00"},
 		},
@@ -320,11 +324,11 @@ func TestCanConstructEmployeeWithNewFields(t *testing.T) {
 	if *employee.ContractID != "contract1" {
 		t.Errorf("expected contractId 'contract1', got '%s'", *employee.ContractID)
 	}
-	if *employee.TimeZoneID != "Europe/Brussels" {
-		t.Errorf("expected timeZoneId 'Europe/Brussels', got '%s'", *employee.TimeZoneID)
+	if *employee.FreezeUntil != "2024-01-16T00:00:00" {
+		t.Errorf("expected freezeUntil '2024-01-16T00:00:00', got '%s'", *employee.FreezeUntil)
 	}
-	if *employee.DedicatedClientID != "client1" {
-		t.Errorf("expected dedicatedClientId 'client1', got '%s'", *employee.DedicatedClientID)
+	if len(employee.SkillValidity) != 1 || employee.SkillValidity[0].Skill != "Audit" {
+		t.Errorf("expected one skill validity window for 'Audit', got %v", employee.SkillValidity)
 	}
 	if len(employee.AvailabilityTimeSpans) != 2 {
 		t.Fatalf("expected 2 availability time spans, got %d", len(employee.AvailabilityTimeSpans))
@@ -344,13 +348,27 @@ func TestCanConstructTaskWithNewFields(t *testing.T) {
 		Duration:            "PT16H",
 		Priority:            "HIGH",
 		RequiredSkills:      []string{"C#", "React"},
-		PreferredSkills:     []string{"Docker", "Kubernetes"},
-		TimeZoneID:          strPtr("America/New_York"),
-		DependsOn:           []string{"task0"},
+		PreferredSkills: []string{"Docker", "Kubernetes"},
+		DependsOn: []TaskDependency{
+			{TaskID: "task0"},
+			{TaskID: "review", Anchor: strPtr("END"), MinOffset: strPtr("PT12H"), MaxOffset: strPtr("P3D"), RequiresSameEmployee: true, NoIntermediateTasks: true},
+		},
 		PreferredEmployees:  []string{"emp1", "emp2"},
 		ProhibitedEmployees: []string{"emp3"},
+		AllowedEmployees:    []string{"emp1", "emp2", "emp4"},
 		ClientID:            strPtr("client1"),
 		ProjectID:           strPtr("project1"),
+		SLA:                 strPtr("2024-01-22T17:00:00"),
+		EarliestStart:       strPtr("2024-01-15T09:00:00"),
+		TaskType:            strPtr("deep-work"),
+		PriorityValue:       intPtr(120),
+		DurationByEmployee:  map[string]string{"emp1": "PT8H"},
+		Pinned:              true,
+		ParentTaskID:        strPtr("feature"),
+		SegmentIndex:        intPtr(1),
+		TotalSegments:       intPtr(2),
+		InitialEmployeeID:   strPtr("emp1"),
+		InitialStartTime:    strPtr("2024-01-15T09:00:00"),
 	}
 
 	if task.ID != "task1" {
@@ -369,14 +387,29 @@ func TestCanConstructTaskWithNewFields(t *testing.T) {
 	if !found {
 		t.Errorf("expected preferred skills to contain 'Docker'")
 	}
-	if *task.TimeZoneID != "America/New_York" {
-		t.Errorf("expected timeZoneId 'America/New_York', got '%s'", *task.TimeZoneID)
+	if len(task.DependsOn) != 2 {
+		t.Fatalf("expected 2 dependencies, got %d", len(task.DependsOn))
 	}
-	if len(task.DependsOn) != 1 {
-		t.Fatalf("expected 1 dependency, got %d", len(task.DependsOn))
+	if task.DependsOn[0].TaskID != "task0" || task.DependsOn[0].Anchor != nil {
+		t.Errorf("expected a plain dependency on 'task0', got %+v", task.DependsOn[0])
 	}
-	if task.DependsOn[0] != "task0" {
-		t.Errorf("expected dependency 'task0', got '%s'", task.DependsOn[0])
+	if *task.DependsOn[1].MinOffset != "PT12H" || !task.DependsOn[1].RequiresSameEmployee {
+		t.Errorf("expected a rich dependency on 'review', got %+v", task.DependsOn[1])
+	}
+	if len(task.AllowedEmployees) != 3 {
+		t.Errorf("expected 3 allowed employees, got %d", len(task.AllowedEmployees))
+	}
+	if *task.SLA != "2024-01-22T17:00:00" || *task.EarliestStart != "2024-01-15T09:00:00" || *task.TaskType != "deep-work" {
+		t.Errorf("expected sla/earliestStart/taskType to round-trip, got %+v", task)
+	}
+	if *task.PriorityValue != 120 || task.DurationByEmployee["emp1"] != "PT8H" {
+		t.Errorf("expected priorityValue 120 and a duration override for emp1, got %+v", task)
+	}
+	if !task.Pinned || *task.ParentTaskID != "feature" || *task.SegmentIndex != 1 || *task.TotalSegments != 2 {
+		t.Errorf("expected pinning and split-task fields to round-trip, got %+v", task)
+	}
+	if *task.InitialEmployeeID != "emp1" || *task.InitialStartTime != "2024-01-15T09:00:00" {
+		t.Errorf("expected re-planning fields to round-trip, got %+v", task)
 	}
 	if len(task.PreferredEmployees) != 2 {
 		t.Errorf("expected 2 preferred employees, got %d", len(task.PreferredEmployees))
@@ -404,18 +437,35 @@ func TestCanConstructRequestWithContracts(t *testing.T) {
 				MaxHoursPerDay:       strPtr("PT8H"),
 				MaxHoursPerWeek:      strPtr("PT40H"),
 				MinRestBetweenShifts: strPtr("PT12H"),
-				TargetUtilization:    float64Ptr(0.85),
 			},
 			{
-				ID:                strPtr("part-time"),
-				Name:              strPtr("Part Time"),
-				MaxHoursPerDay:    strPtr("PT4H"),
-				MaxHoursPerWeek:   strPtr("PT20H"),
-				TargetUtilization: float64Ptr(0.70),
+				ID:              strPtr("part-time"),
+				Name:            strPtr("Part Time"),
+				MaxHoursPerDay:  strPtr("PT4H"),
+				MaxHoursPerWeek: strPtr("PT20H"),
 			},
 		},
+		TaskTypes: []string{"deep-work", "meeting"},
+		TaskTypeTransitions: []TaskTypeTransition{
+			{FromTaskType: "deep-work", ToTaskType: "meeting", SetupDuration: strPtr("PT15M")},
+			{FromTaskType: "*", ToTaskType: "deep-work", Forbidden: true},
+		},
+		FreezeUntil: strPtr("2024-01-10T00:00:00"),
+		Weights:     map[string]string{"meetDeadlines": "0hard/0medium/5soft"},
 	}
 
+	if len(request.TaskTypes) != 2 {
+		t.Errorf("expected 2 task types, got %d", len(request.TaskTypes))
+	}
+	if *request.TaskTypeTransitions[0].SetupDuration != "PT15M" || !request.TaskTypeTransitions[1].Forbidden {
+		t.Errorf("expected task type transitions to round-trip, got %+v", request.TaskTypeTransitions)
+	}
+	if *request.FreezeUntil != "2024-01-10T00:00:00" {
+		t.Errorf("expected freezeUntil to round-trip, got %v", request.FreezeUntil)
+	}
+	if request.Weights["meetDeadlines"] != "0hard/0medium/5soft" {
+		t.Errorf("expected weights to round-trip, got %v", request.Weights)
+	}
 	if len(request.Contracts) != 2 {
 		t.Fatalf("expected 2 contracts, got %d", len(request.Contracts))
 	}
@@ -431,9 +481,6 @@ func TestCanConstructRequestWithContracts(t *testing.T) {
 	if *request.Contracts[0].MinRestBetweenShifts != "PT12H" {
 		t.Errorf("expected minRestBetweenShifts 'PT12H', got '%s'", *request.Contracts[0].MinRestBetweenShifts)
 	}
-	if *request.Contracts[0].TargetUtilization != 0.85 {
-		t.Errorf("expected targetUtilization 0.85, got %f", *request.Contracts[0].TargetUtilization)
-	}
 	if *request.Contracts[1].ID != "part-time" {
 		t.Errorf("expected second contract ID 'part-time', got '%s'", *request.Contracts[1].ID)
 	}
@@ -446,9 +493,9 @@ func TestCanSerializeNewFieldsToJSON(t *testing.T) {
 				ID:                "emp1",
 				Skills:            []string{"C#"},
 				HourlyRate:        float64Ptr(100.0),
-				ContractID:        strPtr("full-time"),
-				TimeZoneID:        strPtr("Europe/London"),
-				DedicatedClientID: strPtr("client1"),
+				ContractID:    strPtr("full-time"),
+				FreezeUntil:   strPtr("2024-01-16T00:00:00"),
+				SkillValidity: []SkillValidity{{Skill: "Audit", ValidTo: strPtr("2025-01-01T00:00:00")}},
 				AvailabilityTimeSpans: []AvailabilityTimeSpan{
 					{ID: strPtr("a1"), Start: strPtr("2024-01-15T08:00:00"), End: strPtr("2024-01-15T17:00:00"), Type: strPtr("AVAILABLE")},
 				},
@@ -462,15 +509,27 @@ func TestCanSerializeNewFieldsToJSON(t *testing.T) {
 				Priority:            "HIGH",
 				RequiredSkills:      []string{"C#"},
 				PreferredSkills:     []string{"Azure"},
-				TimeZoneID:          strPtr("Europe/London"),
-				DependsOn:           []string{"task0"},
+				DependsOn:           []TaskDependency{{TaskID: "task0"}},
 				PreferredEmployees:  []string{"emp1"},
 				ProhibitedEmployees: []string{"emp2"},
+				AllowedEmployees:    []string{"emp1"},
+				SLA:                 strPtr("2024-01-20T17:00:00"),
+				EarliestStart:       strPtr("2024-01-15T09:00:00"),
+				TaskType:            strPtr("deep-work"),
+				PriorityValue:       intPtr(80),
+				DurationByEmployee:  map[string]string{"emp1": "PT6H"},
+				Pinned:              true,
+				InitialEmployeeID:   strPtr("emp1"),
+				InitialStartTime:    strPtr("2024-01-15T09:00:00"),
 			},
 		},
 		Contracts: []Contract{
 			{ID: strPtr("full-time"), Name: strPtr("Full Time"), MaxHoursPerDay: strPtr("PT8H")},
 		},
+		TaskTypeTransitions: []TaskTypeTransition{{FromTaskType: "*", ToTaskType: "deep-work", SetupDuration: strPtr("PT30M")}},
+		TaskTypes:           []string{"deep-work"},
+		FreezeUntil:         strPtr("2024-01-10T00:00:00"),
+		Weights:             map[string]string{"minimizeCost": "0hard/0medium/2soft"},
 	}
 
 	data, err := json.Marshal(request)
@@ -480,13 +539,29 @@ func TestCanSerializeNewFieldsToJSON(t *testing.T) {
 
 	jsonStr := string(data)
 	for _, expected := range []string{
-		"hourlyRate", "contractId", "timeZoneId", "dedicatedClientId",
-		"availabilityTimeSpans", "preferredSkills", "dependsOn",
-		"preferredEmployees", "prohibitedEmployees", "contracts", "maxHoursPerDay",
+		"hourlyRate", "contractId", `"freezeUntil":"2024-01-16T00:00:00"`, `"skillValidity":[{"skill":"Audit"`,
+		"availabilityTimeSpans", "preferredSkills",
+		// Dependencies go over the wire in the solver's object form.
+		`"dependsOn":[{"taskId":"task0"}]`,
+		"preferredEmployees", "prohibitedEmployees", `"allowedEmployees":["emp1"]`,
+		`"sla":"2024-01-20T17:00:00"`, `"earliestStart":`, `"taskType":"deep-work"`, `"priorityValue":80`,
+		`"durationByEmployee":{"emp1":"PT6H"}`, `"pinned":true`, `"initialEmployeeId":"emp1"`,
+		"contracts", "maxHoursPerDay",
+		`"taskTypeTransitions":[{"fromTaskType":"*"`, `"taskTypes":["deep-work"]`, `"freezeUntil":"2024-01-10T00:00:00"`,
+		`"weights":{"minimizeCost":"0hard/0medium/2soft"}`,
 	} {
 		if !strings.Contains(jsonStr, expected) {
 			t.Errorf("expected JSON to contain '%s'", expected)
 		}
+	}
+	for _, unexpected := range []string{"timeZoneId", "dedicatedClientId", "targetUtilization"} {
+		if strings.Contains(jsonStr, unexpected) {
+			t.Errorf("expected JSON not to contain the retired field '%s'", unexpected)
+		}
+	}
+	// A plain dependency omits its unset options.
+	if strings.Contains(jsonStr, `"anchor"`) || strings.Contains(jsonStr, `"requiresSameEmployee"`) {
+		t.Errorf("expected a plain dependency to omit unset options, got %s", jsonStr)
 	}
 }
 
@@ -499,11 +574,13 @@ func TestCanDeserializeNewFieldsFromJSON(t *testing.T) {
 				"shifts": [],
 				"hourlyRate": 100.0,
 				"contractId": "full-time",
-				"timeZoneId": "Europe/London",
-				"dedicatedClientId": "client1",
+				"freezeUntil": "2024-01-16T00:00:00",
+				"skillValidity": [{"skill": "Audit", "validFrom": "2024-01-01T00:00:00", "validTo": "2025-01-01T00:00:00"}],
 				"availabilityTimeSpans": [
 					{"id": "a1", "start": "2024-01-15T08:00:00", "end": "2024-01-15T17:00:00", "type": "AVAILABLE"}
-				]
+				],
+				"tasks": ["task1"],
+				"duration": "PT8H"
 			}
 		],
 		"tasks": [
@@ -512,9 +589,29 @@ func TestCanDeserializeNewFieldsFromJSON(t *testing.T) {
 				"name": "API Work",
 				"duration": "PT8H",
 				"priority": "HIGH",
-				"requiredSkills": ["C#"]
+				"priorityValue": 80,
+				"requiredSkills": ["C#"],
+				"dependsOn": [{"taskId": "task0", "anchor": "END", "minOffset": "PT1H", "requiresSameEmployee": true}],
+				"allowedEmployees": ["emp1"],
+				"sla": "2024-01-20T17:00:00",
+				"earliestStart": "2024-01-15T09:00:00",
+				"taskType": "deep-work",
+				"durationByEmployee": {"emp1": "PT6H"},
+				"pinned": true,
+				"parentTaskId": "feature",
+				"segmentIndex": 0,
+				"totalSegments": 2,
+				"initialEmployeeId": "emp1",
+				"initialStartTime": "2024-01-15T09:00:00",
+				"employee": "emp1",
+				"previousTask": null,
+				"startTime": "2024-01-15T09:00:00",
+				"endTime": "2024-01-15T15:00:00"
 			}
-		]
+		],
+		"taskTypeTransitions": [{"fromTaskType": "deep-work", "toTaskType": "meeting", "setupDuration": "PT15M", "forbidden": false}],
+		"taskTypes": ["deep-work", "meeting"],
+		"freezeUntil": "2024-01-10T00:00:00"
 	}`
 
 	var result ProfessionalServicesResultResponse
@@ -525,28 +622,82 @@ func TestCanDeserializeNewFieldsFromJSON(t *testing.T) {
 	if len(result.Employees) != 1 {
 		t.Fatalf("expected 1 employee, got %d", len(result.Employees))
 	}
-	if *result.Employees[0].HourlyRate != 100.0 {
-		t.Errorf("expected hourlyRate 100.0, got %f", *result.Employees[0].HourlyRate)
+	employee := result.Employees[0]
+	if *employee.HourlyRate != 100.0 {
+		t.Errorf("expected hourlyRate 100.0, got %f", *employee.HourlyRate)
 	}
-	if *result.Employees[0].ContractID != "full-time" {
-		t.Errorf("expected contractId 'full-time', got '%s'", *result.Employees[0].ContractID)
+	if *employee.ContractID != "full-time" {
+		t.Errorf("expected contractId 'full-time', got '%s'", *employee.ContractID)
 	}
-	if *result.Employees[0].TimeZoneID != "Europe/London" {
-		t.Errorf("expected timeZoneId 'Europe/London', got '%s'", *result.Employees[0].TimeZoneID)
+	if *employee.FreezeUntil != "2024-01-16T00:00:00" {
+		t.Errorf("expected freezeUntil to parse, got %v", employee.FreezeUntil)
 	}
-	if *result.Employees[0].DedicatedClientID != "client1" {
-		t.Errorf("expected dedicatedClientId 'client1', got '%s'", *result.Employees[0].DedicatedClientID)
+	if len(employee.SkillValidity) != 1 || employee.SkillValidity[0].Skill != "Audit" || *employee.SkillValidity[0].ValidTo != "2025-01-01T00:00:00" {
+		t.Errorf("expected skill validity to parse, got %+v", employee.SkillValidity)
 	}
-	if len(result.Employees[0].AvailabilityTimeSpans) != 1 {
-		t.Fatalf("expected 1 availability time span, got %d", len(result.Employees[0].AvailabilityTimeSpans))
+	if len(employee.AvailabilityTimeSpans) != 1 {
+		t.Fatalf("expected 1 availability time span, got %d", len(employee.AvailabilityTimeSpans))
 	}
-	if *result.Employees[0].AvailabilityTimeSpans[0].Type != "AVAILABLE" {
-		t.Errorf("expected type 'AVAILABLE', got '%s'", *result.Employees[0].AvailabilityTimeSpans[0].Type)
+	if *employee.AvailabilityTimeSpans[0].Type != "AVAILABLE" {
+		t.Errorf("expected type 'AVAILABLE', got '%s'", *employee.AvailabilityTimeSpans[0].Type)
+	}
+	if len(employee.Tasks) != 1 || employee.Tasks[0] != "task1" || *employee.Duration != "PT8H" {
+		t.Errorf("expected the solver's assignment echo on the employee, got %+v", employee)
 	}
 	if len(result.Tasks) != 1 {
 		t.Fatalf("expected 1 task, got %d", len(result.Tasks))
 	}
-	if result.Tasks[0].ID != "task1" {
-		t.Errorf("expected task ID 'task1', got '%s'", result.Tasks[0].ID)
+	task := result.Tasks[0]
+	if task.ID != "task1" {
+		t.Errorf("expected task ID 'task1', got '%s'", task.ID)
+	}
+	if *task.PriorityValue != 80 {
+		t.Errorf("expected priorityValue 80, got %v", task.PriorityValue)
+	}
+	if len(task.DependsOn) != 1 || task.DependsOn[0].TaskID != "task0" || *task.DependsOn[0].Anchor != "END" || *task.DependsOn[0].MinOffset != "PT1H" || !task.DependsOn[0].RequiresSameEmployee || task.DependsOn[0].NoIntermediateTasks {
+		t.Errorf("expected the object-form dependency to parse, got %+v", task.DependsOn)
+	}
+	if len(task.AllowedEmployees) != 1 || *task.SLA != "2024-01-20T17:00:00" || *task.EarliestStart != "2024-01-15T09:00:00" || *task.TaskType != "deep-work" {
+		t.Errorf("expected whitelist/sla/earliestStart/taskType to parse, got %+v", task)
+	}
+	if task.DurationByEmployee["emp1"] != "PT6H" || !task.Pinned || *task.ParentTaskID != "feature" || *task.SegmentIndex != 0 || *task.TotalSegments != 2 {
+		t.Errorf("expected duration overrides, pinning and split-task fields to parse, got %+v", task)
+	}
+	if *task.InitialEmployeeID != "emp1" || *task.Employee != "emp1" || task.PreviousTask != nil || *task.StartTime != "2024-01-15T09:00:00" || *task.EndTime != "2024-01-15T15:00:00" {
+		t.Errorf("expected the solver's assignment fields to parse, got %+v", task)
+	}
+	if len(result.TaskTypeTransitions) != 1 || result.TaskTypeTransitions[0].FromTaskType != "deep-work" || *result.TaskTypeTransitions[0].SetupDuration != "PT15M" {
+		t.Errorf("expected task type transitions to parse, got %+v", result.TaskTypeTransitions)
+	}
+	if len(result.TaskTypes) != 2 || *result.FreezeUntil != "2024-01-10T00:00:00" {
+		t.Errorf("expected plan-level fields to parse, got %+v", result)
+	}
+}
+
+func TestCanSerializeOptionsToJSON(t *testing.T) {
+	request := ProfessionalServicesRequest{
+		Employees: []Employee{{ID: "emp1", Skills: []string{"C#"}}},
+		Tasks:     []Task{{ID: "task1", Name: "API Work", Duration: "PT8H", Priority: "HIGH", RequiredSkills: []string{"C#"}}},
+		Options:   &SolverOptions{SpentLimit: strPtr("PT30S"), UnimprovedSpentLimit: strPtr("PT5S")},
+	}
+
+	data, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if !strings.Contains(string(data), `"options":{"spentLimit":"PT30S","unimprovedSpentLimit":"PT5S"}`) {
+		t.Errorf("expected options in the request body, got %s", data)
+	}
+
+	// Unset option fields are omitted, and a nil Options is omitted entirely.
+	request.Options = &SolverOptions{SpentLimit: strPtr("PT1M")}
+	data, _ = json.Marshal(request)
+	if !strings.Contains(string(data), `"options":{"spentLimit":"PT1M"}`) {
+		t.Errorf("expected unset unimprovedSpentLimit to be omitted, got %s", data)
+	}
+	request.Options = nil
+	data, _ = json.Marshal(request)
+	if strings.Contains(string(data), `"options"`) {
+		t.Errorf("expected nil options to be omitted, got %s", data)
 	}
 }
