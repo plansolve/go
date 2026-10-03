@@ -6,14 +6,6 @@ import (
 	"testing"
 )
 
-func strPtr(s string) *string {
-	return &s
-}
-
-func intPtr(i int) *int {
-	return &i
-}
-
 func TestCanConstructFieldServiceRequest(t *testing.T) {
 	request := FieldServiceRequest{
 		Vehicles: []Vehicle{
@@ -178,7 +170,7 @@ func TestCanDeserializeExtendedVehicleAndVisitFields(t *testing.T) {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if result.Score == nil || *result.Score != "0hard/0medium/-30soft" {
+	if result.Score == nil || result.Score.String() != "0hard/0medium/-30soft" {
 		t.Errorf("expected score, got %v", result.Score)
 	}
 	if result.TotalDrivingTimeSeconds != 5400 {

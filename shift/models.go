@@ -1,5 +1,11 @@
 package shift
 
+import (
+	"encoding/json"
+
+	"github.com/plansolve/go/solver"
+)
+
 // ShiftRequest is the request model for starting a shift optimization. It
 // corresponds to the API's ShiftAssignmentRequest.
 type ShiftRequest struct {
@@ -207,7 +213,7 @@ type ShiftStartResponse struct {
 
 // ShiftResultResponse is the response from getting shift optimization results.
 // It corresponds to the API's ShiftAssignmentResponse: the echoed input PLUS
-// the solution (feasible, scoreString, score, unassignedShifts, assignedShifts).
+// the solution (feasible, score, unassignedShifts, assignedShifts).
 // Each shift carries its own AssignedEmployee; there is no employee-side
 // back-reference. It carries no jobId on the wire.
 type ShiftResultResponse struct {
@@ -240,13 +246,31 @@ type ShiftResultResponse struct {
 	ConstraintWeightOverrides map[string]string `json:"constraintWeightOverrides,omitempty"`
 	// Feasible reports whether the returned solution satisfies all hard constraints.
 	Feasible *bool `json:"feasible,omitempty"`
-	// ScoreString is the final score as a solver score string.
-	ScoreString *string `json:"scoreString,omitempty"`
-	// Score is the score broken down into its component levels (hardScore, mediumScore,
-	// softScore, 64-bit integers) plus feasible and zero. nil until the solver has a score.
-	Score map[string]interface{} `json:"score,omitempty"`
+	// Score is the optimization score from the solver. nil until the solver
+	// has scored the solution.
+	Score *solver.Score `json:"score,omitempty"`
 	// UnassignedShifts are the shifts the solver could not staff.
 	UnassignedShifts []ShiftAssignment `json:"unassignedShifts,omitempty"`
 	// AssignedShifts are the shifts the solver successfully staffed.
 	AssignedShifts []ShiftAssignment `json:"assignedShifts,omitempty"`
+}
+
+// UnmarshalJSON decodes the response, routing the score field through
+// solver.ParseScoreJSON so both wire shapes - and the absence of a score -
+// are handled in one place.
+func (r *ShiftResultResponse) UnmarshalJSON(data []byte) error {
+	type alias ShiftResultResponse
+	aux := &struct {
+		Score json.RawMessage `json:"score"`
+		*alias
+	}{alias: (*alias)(r)}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	score, err := solver.ParseScoreJSON(aux.Score)
+	if err != nil {
+		return err
+	}
+	r.Score = score
+	return nil
 }

@@ -102,8 +102,7 @@ func TestCanDeserializeResultResponse(t *testing.T) {
 		],
 		"solverStatus": "NOT_SOLVING",
 		"feasible": true,
-		"scoreString": "0hard/-10soft",
-		"score": {"hardScore": 0, "softScore": -10},
+		"score": {"hardScore": 0, "mediumScore": 0, "softScore": -10, "solutionInitialized": true},
 		"assignedTasks": ["task1"],
 		"unassignedTasks": []
 	}`
@@ -128,11 +127,8 @@ func TestCanDeserializeResultResponse(t *testing.T) {
 	if result.Feasible == nil || !*result.Feasible {
 		t.Errorf("expected feasible to be true")
 	}
-	if result.ScoreString == nil || *result.ScoreString != "0hard/-10soft" {
-		t.Errorf("expected scoreString '0hard/-10soft', got %v", result.ScoreString)
-	}
-	if result.Score["hardScore"] != float64(0) {
-		t.Errorf("expected score.hardScore 0, got %v", result.Score["hardScore"])
+	if result.Score == nil || result.Score.Soft != -10 {
+		t.Errorf("expected soft -10, got %+v", result.Score)
 	}
 	if len(result.AssignedTasks) != 1 || result.AssignedTasks[0] != "task1" {
 		t.Errorf("expected assignedTasks ['task1'], got %v", result.AssignedTasks)
@@ -217,7 +213,6 @@ func TestCanConstructResultResponseEcho(t *testing.T) {
 			{ID: "task1", Name: "Code Review", Duration: "PT8H", Priority: "HIGH", RequiredSkills: []string{"C#"}},
 		},
 		Feasible:        boolPtr(true),
-		ScoreString:     strPtr("0hard/-10soft"),
 		AssignedTasks:   []string{"task1"},
 		UnassignedTasks: []string{},
 	}

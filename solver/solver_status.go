@@ -5,6 +5,8 @@
 // root package imports the subpackages to assemble the aggregate Client.
 package solver
 
+import "encoding/json"
+
 // SolverStatus represents the state of the solver.
 type SolverStatus string
 
@@ -25,10 +27,30 @@ type SolverStatusResponse struct {
 	JobID string `json:"jobId"`
 	// SolverStatus is the raw solver engine status (e.g. SOLVING_ACTIVE, NOT_SOLVING).
 	SolverStatus SolverStatus `json:"solverStatus"`
-	// Score is the current best score as a solver score string, when available.
-	Score string `json:"score"`
+	// Score is the current best score, when available.
+	Score *Score `json:"score,omitempty"`
 	// Feasible reports whether the current best solution satisfies all hard constraints.
 	Feasible bool `json:"feasible"`
 	// Solving reports whether the solver is still actively working on the job.
 	Solving bool `json:"solving"`
+}
+
+// UnmarshalJSON decodes the response, routing the score field through
+// ParseScoreJSON so both wire shapes - and the absence of a score - are
+// handled in one place.
+func (r *SolverStatusResponse) UnmarshalJSON(data []byte) error {
+	type alias SolverStatusResponse
+	aux := &struct {
+		Score json.RawMessage `json:"score"`
+		*alias
+	}{alias: (*alias)(r)}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	score, err := ParseScoreJSON(aux.Score)
+	if err != nil {
+		return err
+	}
+	r.Score = score
+	return nil
 }

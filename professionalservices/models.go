@@ -1,5 +1,11 @@
 package professionalservices
 
+import (
+	"encoding/json"
+
+	"github.com/plansolve/go/solver"
+)
+
 // ProfessionalServicesRequest is the request model for starting a professional services optimization.
 type ProfessionalServicesRequest struct {
 	// Name of the plan/project being scheduled.
@@ -224,8 +230,7 @@ type ProfessionalServicesStartResponse struct {
 // ProfessionalServicesResultResponse is the response from getting professional
 // services optimization results. It corresponds to the API's
 // ProfessionalServicesResponse: a full echo of the request PLUS the result
-// fields (solverStatus, feasible, scoreString, score, unassignedTasks,
-// assignedTasks).
+// fields (solverStatus, feasible, score, unassignedTasks, assignedTasks).
 type ProfessionalServicesResultResponse struct {
 	// JobID is the public job identifier this result was fetched with (stamped client-side).
 	JobID *string `json:"jobId,omitempty"`
@@ -255,12 +260,31 @@ type ProfessionalServicesResultResponse struct {
 	SolverStatus *string `json:"solverStatus,omitempty"`
 	// Feasible reports whether the returned solution satisfies all hard constraints.
 	Feasible *bool `json:"feasible,omitempty"`
-	// ScoreString is the final score as a solver score string.
-	ScoreString *string `json:"scoreString,omitempty"`
-	// Score is the score broken down into its component levels.
-	Score map[string]interface{} `json:"score,omitempty"`
+	// Score is the optimization score from the solver. nil until the solver
+	// has scored the solution.
+	Score *solver.Score `json:"score,omitempty"`
 	// UnassignedTasks are the ids of tasks the solver could not assign.
 	UnassignedTasks []string `json:"unassignedTasks,omitempty"`
 	// AssignedTasks are the ids of tasks the solver successfully assigned.
 	AssignedTasks []string `json:"assignedTasks,omitempty"`
+}
+
+// UnmarshalJSON decodes the response, routing the score field through
+// solver.ParseScoreJSON so both wire shapes - and the absence of a score -
+// are handled in one place.
+func (r *ProfessionalServicesResultResponse) UnmarshalJSON(data []byte) error {
+	type alias ProfessionalServicesResultResponse
+	aux := &struct {
+		Score json.RawMessage `json:"score"`
+		*alias
+	}{alias: (*alias)(r)}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	score, err := solver.ParseScoreJSON(aux.Score)
+	if err != nil {
+		return err
+	}
+	r.Score = score
+	return nil
 }

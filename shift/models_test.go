@@ -322,8 +322,7 @@ func TestCanDeserializeShiftRequestFromJSON(t *testing.T) {
 func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 	jsonStr := `{
 		"feasible": true,
-		"scoreString": "0hard/-120soft",
-		"score": {"hardScore": 0, "softScore": -120},
+		"score": {"hardScore": 0, "mediumScore": 0, "softScore": -120, "solutionInitialized": true},
 		"assignedShifts": [
 			{
 				"name": "Morning#1",
@@ -360,11 +359,8 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 	if result.Feasible == nil || !*result.Feasible {
 		t.Errorf("expected feasible to be true")
 	}
-	if result.ScoreString == nil || *result.ScoreString != "0hard/-120soft" {
-		t.Errorf("expected scoreString '0hard/-120soft', got '%v'", result.ScoreString)
-	}
-	if result.Score["hardScore"] != float64(0) {
-		t.Errorf("expected score.hardScore 0, got %v", result.Score["hardScore"])
+	if result.Score == nil || result.Score.Soft != -120 {
+		t.Errorf("expected soft -120, got %+v", result.Score)
 	}
 
 	if len(result.AssignedShifts) != 1 {
@@ -420,8 +416,7 @@ func TestShiftResultResponseEchoesRequestFields(t *testing.T) {
 		"hook": "https://example.com/webhook",
 		"constraintWeightOverrides": {"shiftOffRequest": "0hard/0medium/4soft"},
 		"feasible": true,
-		"scoreString": "0hard/-120soft",
-		"score": {"hardScore": 0, "softScore": -120},
+		"score": {"hardScore": 0, "mediumScore": 0, "softScore": -120, "solutionInitialized": true},
 		"assignedShifts": [
 			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00", "pinnedByUser": false, "assignedEmployee": "alice"}
 		],

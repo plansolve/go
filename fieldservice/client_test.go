@@ -67,7 +67,7 @@ func TestAnalyzeCallsAnalyzeEndpoint(t *testing.T) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"score": "0hard/-5soft", "constraints": []}`))
+		_, _ = w.Write([]byte(`{"score": "0hard/0medium/-5soft", "constraints": []}`))
 	}))
 	defer server.Close()
 
@@ -84,8 +84,8 @@ func TestAnalyzeCallsAnalyzeEndpoint(t *testing.T) {
 	if gotPath != "/api/v1/fieldservice/job-an/analyze" {
 		t.Errorf("expected path '/api/v1/fieldservice/job-an/analyze', got '%s'", gotPath)
 	}
-	if analysis["score"] != "0hard/-5soft" {
-		t.Errorf("expected score '0hard/-5soft', got %v", analysis["score"])
+	if analysis["score"] != "0hard/0medium/-5soft" {
+		t.Errorf("expected score '0hard/0medium/-5soft', got %v", analysis["score"])
 	}
 }
 
@@ -96,7 +96,7 @@ func TestIsStillSolvingMatchesServerRule(t *testing.T) {
 		want   bool
 	}{
 		{"done without score", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusNotSolving}, false},
-		{"done with score", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusNotSolving, Score: "0hard/0soft"}, false},
+		{"done with score", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusNotSolving, Score: &solver.Score{Hard: 0, Soft: 0}}, false},
 		{"solving flag set", solver.SolverStatusResponse{Solving: true, SolverStatus: solver.SolverStatusNotSolving}, true},
 		{"active", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusSolvingActive}, true},
 		{"scheduled", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusSolvingScheduled}, true},

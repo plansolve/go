@@ -1,5 +1,11 @@
 package fieldservice
 
+import (
+	"encoding/json"
+
+	"github.com/plansolve/go/solver"
+)
+
 // FieldServiceRequest is the request model for starting a field service optimization.
 type FieldServiceRequest struct {
 	// Vehicles (technicians/resources) available to service the visits.
@@ -121,11 +127,31 @@ type FieldServiceResultResponse struct {
 	// Visits are the extended visits with additional metadata.
 	Visits []ScheduledVisit `json:"visits"`
 	// Score is the optimization score from the solver.
-	Score *string `json:"score,omitempty"`
+	Score *solver.Score `json:"score,omitempty"`
 	// TotalDrivingTimeSeconds is the total driving time in seconds across all vehicles.
 	TotalDrivingTimeSeconds int64 `json:"totalDrivingTimeSeconds"`
 	// Weights are the weights in format Xhard/Ymedium/Zsoft.
 	Weights map[string]string `json:"weights,omitempty"`
+}
+
+// UnmarshalJSON decodes the response, routing the score field through
+// solver.ParseScoreJSON so both wire shapes - and the absence of a score -
+// are handled in one place.
+func (r *FieldServiceResultResponse) UnmarshalJSON(data []byte) error {
+	type alias FieldServiceResultResponse
+	aux := &struct {
+		Score json.RawMessage `json:"score"`
+		*alias
+	}{alias: (*alias)(r)}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	score, err := solver.ParseScoreJSON(aux.Score)
+	if err != nil {
+		return err
+	}
+	r.Score = score
+	return nil
 }
 
 // ScheduledVehicle represents a vehicle in the optimization result. It
