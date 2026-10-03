@@ -8,4 +8,6 @@ import "github.com/plansolve/go/solver"
 type Score = solver.Score
 
 // ParseScore parses a score string in the format "Xhard/Ymedium/Zsoft".
-var ParseScore = solver.ParseScore
+func ParseScore(value string) (Score, error) {
+	return solver.ParseScore(value)
+}

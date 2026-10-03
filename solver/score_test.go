@@ -115,3 +115,44 @@ func TestScoreUnmarshalRejectsGarbage(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 }
+
+func TestParseScoreRejectsOutOfRangeInt64(t *testing.T) {
+	// Review finding: the input is regex-valid but overflows int64. Silently
+	// returning Score{MaxInt64, 0, 0} with a nil error would be exactly the
+	// silent-wrong-answer class this whole change exists to eliminate.
+	_, err := ParseScore("99999999999999999999hard/0medium/0soft")
+	if err == nil {
+		t.Fatal("expected an error for a hard level that overflows int64")
+	}
+}
+
+func TestScoreMarshalJSONUsesCanonicalString(t *testing.T) {
+	score := Score{Hard: 0, Medium: 0, Soft: -5}
+	data, err := json.Marshal(score)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(data) != `"0hard/0medium/-5soft"` {
+		t.Errorf("got %s, want canonical string", data)
+	}
+}
+
+func TestScoreMarshalJSONRoundTrips(t *testing.T) {
+	// A Score marshalled on its own (e.g. cached, logged) must be readable by
+	// the same ParseScoreJSON-based decoding path used by every response type.
+	original := scoreHolder{Score: &Score{Hard: -1, Medium: 2, Soft: -400}}
+
+	data, err := json.Marshal(&original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var roundTripped scoreHolder
+	if err := json.Unmarshal(data, &roundTripped); err != nil {
+		t.Fatalf("unmarshal round-tripped JSON %s: %v", data, err)
+	}
+
+	if roundTripped.Score == nil || *roundTripped.Score != *original.Score {
+		t.Errorf("score did not survive round trip: got %+v, want %+v", roundTripped.Score, original.Score)
+	}
+}

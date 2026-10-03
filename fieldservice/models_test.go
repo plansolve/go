@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/plansolve/go/solver"
 )
 
 func TestCanConstructFieldServiceRequest(t *testing.T) {
@@ -125,6 +127,32 @@ func TestCanDeserializeFieldServiceResultResponse(t *testing.T) {
 	}
 	if result.Visits[0].MaxEndTime == nil || *result.Visits[0].MaxEndTime != "2024-01-15T12:00:00" {
 		t.Errorf("expected maxEndTime '2024-01-15T12:00:00', got %v", result.Visits[0].MaxEndTime)
+	}
+}
+
+func TestFieldServiceResultResponseScoreRoundTrips(t *testing.T) {
+	// A caller may cache a result to disk or log it as JSON, then read it back
+	// with the same SDK. Score.MarshalJSON must emit the canonical string form
+	// so that round trip succeeds - a bare {"hard":...,"medium":...,"soft":...}
+	// (the struct's former json tags) is rejected by ParseScoreJSON.
+	original := FieldServiceResultResponse{
+		Vehicles: []ScheduledVehicle{},
+		Visits:   []ScheduledVisit{},
+		Score:    &solver.Score{Hard: 0, Medium: 0, Soft: -5},
+	}
+
+	data, err := json.Marshal(&original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var roundTripped FieldServiceResultResponse
+	if err := json.Unmarshal(data, &roundTripped); err != nil {
+		t.Fatalf("unmarshal round-tripped JSON %s: %v", data, err)
+	}
+
+	if roundTripped.Score == nil || *roundTripped.Score != *original.Score {
+		t.Errorf("score did not survive round trip: got %+v, want %+v", roundTripped.Score, original.Score)
 	}
 }
 

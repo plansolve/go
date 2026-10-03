@@ -15,13 +15,15 @@ var scorePattern = regexp.MustCompile(`^(-?\d+)hard/(-?\d+)medium/(-?\d+)soft$`)
 // sends Timefold's canonical string notation ("0hard/0medium/-5soft"), while
 // shift and professionalservices send an object keyed hardScore/mediumScore/
 // softScore. UnmarshalJSON accepts both, so callers see one type either way.
+// MarshalJSON always emits the canonical string form, so a Score round-trips
+// through any SDK that only reads the string (every reader accepts it).
 type Score struct {
 	// Hard is the hard-constraint level; negative means constraints are violated.
-	Hard int64 `json:"hard"`
+	Hard int64
 	// Medium is the medium-constraint level.
-	Medium int64 `json:"medium"`
+	Medium int64
 	// Soft is the soft-constraint level, used to rank feasible solutions.
-	Soft int64 `json:"soft"`
+	Soft int64
 }
 
 // ParseScore parses a score string in the format "Xhard/Ymedium/Zsoft".
@@ -35,9 +37,18 @@ func ParseScore(value string) (Score, error) {
 		return Score{}, fmt.Errorf("invalid score format: '%s', expected format: 'Xhard/Ymedium/Zsoft'", value)
 	}
 
-	hard, _ := strconv.ParseInt(match[1], 10, 64)
-	medium, _ := strconv.ParseInt(match[2], 10, 64)
-	soft, _ := strconv.ParseInt(match[3], 10, 64)
+	hard, err := strconv.ParseInt(match[1], 10, 64)
+	if err != nil {
+		return Score{}, fmt.Errorf("invalid score format: '%s', hard level out of range for int64", value)
+	}
+	medium, err := strconv.ParseInt(match[2], 10, 64)
+	if err != nil {
+		return Score{}, fmt.Errorf("invalid score format: '%s', medium level out of range for int64", value)
+	}
+	soft, err := strconv.ParseInt(match[3], 10, 64)
+	if err != nil {
+		return Score{}, fmt.Errorf("invalid score format: '%s', soft level out of range for int64", value)
+	}
 
 	return Score{Hard: hard, Medium: medium, Soft: soft}, nil
 }
@@ -45,6 +56,16 @@ func ParseScore(value string) (Score, error) {
 // String returns the score in "Xhard/Ymedium/Zsoft" format.
 func (s Score) String() string {
 	return fmt.Sprintf("%dhard/%dmedium/%dsoft", s.Hard, s.Medium, s.Soft)
+}
+
+// MarshalJSON emits the score in the canonical "Xhard/Ymedium/Zsoft" string
+// form - the same wire shape field service sends, and the one every SDK's
+// reader (including ParseScoreJSON) accepts. Without this, Score's zero-value
+// struct tags would round-trip as {"hard":...,"medium":...,"soft":...}, which
+// ParseScoreJSON rejects: a result cached to disk or logged as JSON could
+// never be read back.
+func (s Score) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
 }
 
 // scoreObject is the shape the shift and professionalservices solvers emit.
