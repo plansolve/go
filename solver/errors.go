@@ -11,11 +11,15 @@ import (
 // API documents:
 //
 //   - ValidationProblemDetails (400): {"errors": {"<field>": ["<msg>", ...]}}
-//   - ErrorResponse (402/422):        {"error": "<string>"}
+//   - ErrorResponse (402/422):        {"error": "<string>", "traceId": "<string>"}
 //   - ProblemDetails (401/403/502):   {"detail": "...", "title": "..."}
 //
 // Priority mirrors the other SDKs: errors(validation) > error > detail > title
 // > raw body. If the body is not a JSON object, the raw body string is returned.
+//
+// When the body carries a non-empty traceId, it is appended as
+// " (traceId: <id>)" - except on the raw body fallback, where the id is already
+// part of the text returned.
 func ExtractErrorMessage(body []byte) string {
 	raw := string(body)
 
@@ -24,6 +28,15 @@ func ExtractErrorMessage(body []byte) string {
 		return raw
 	}
 
+	if message, ok := extractMessage(obj); ok {
+		return withTraceID(message, stringField(obj, "traceId"))
+	}
+
+	return raw
+}
+
+// extractMessage returns the best message in obj, and whether it held one.
+func extractMessage(obj map[string]json.RawMessage) (string, bool) {
 	// ValidationProblemDetails: errors is an object of field -> array of strings.
 	if errsRaw, ok := obj["errors"]; ok {
 		var fields map[string][]string
@@ -36,25 +49,27 @@ func ExtractErrorMessage(body []byte) string {
 			}
 			if len(messages) > 0 {
 				sort.Strings(messages)
-				return strings.Join(messages, "; ")
+				return strings.Join(messages, "; "), true
 			}
 		}
 	}
 
-	// ErrorResponse.
-	if s := stringField(obj, "error"); s != "" {
-		return s
+	// ErrorResponse, then ProblemDetails: detail, then title.
+	for _, key := range []string{"error", "detail", "title"} {
+		if s := stringField(obj, key); s != "" {
+			return s, true
+		}
 	}
 
-	// ProblemDetails: detail, then title.
-	if s := stringField(obj, "detail"); s != "" {
-		return s
-	}
-	if s := stringField(obj, "title"); s != "" {
-		return s
-	}
+	return "", false
+}
 
-	return raw
+// withTraceID appends traceID to message when it is non-empty.
+func withTraceID(message, traceID string) string {
+	if traceID == "" {
+		return message
+	}
+	return message + " (traceId: " + traceID + ")"
 }
 
 // stringField returns the value of key if it is a non-empty JSON string.

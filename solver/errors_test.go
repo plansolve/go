@@ -61,3 +61,49 @@ func TestExtractErrorMessageValidationFieldForm(t *testing.T) {
 		}
 	}
 }
+
+// TestExtractErrorMessageTraceID covers the traceId suffix the API attaches to
+// ErrorResponse bodies.
+func TestExtractErrorMessageTraceID(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "appended to the error string",
+			body: `{"error":"insufficient credits","traceId":"00-abc-01"}`,
+			want: "insufficient credits (traceId: 00-abc-01)",
+		},
+		{
+			name: "appended to validation messages",
+			body: `{"errors":{"Visits":["Required"]},"traceId":"t1"}`,
+			want: "Visits: Required (traceId: t1)",
+		},
+		{
+			name: "appended to problem details title",
+			body: `{"title":"Forbidden","status":403,"traceId":"t2"}`,
+			want: "Forbidden (traceId: t2)",
+		},
+		{
+			name: "empty trace id is not appended",
+			body: `{"error":"boom","traceId":""}`,
+			want: "boom",
+		},
+		{
+			// Nothing to append to, and the body already shows the id.
+			name: "trace id alone falls back to the raw body",
+			body: `{"traceId":"00-abc-01"}`,
+			want: `{"traceId":"00-abc-01"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractErrorMessage([]byte(tt.body))
+			if got != tt.want {
+				t.Errorf("ExtractErrorMessage() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

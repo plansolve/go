@@ -3,7 +3,9 @@ package shift
 // ShiftRequest is the request model for starting a shift optimization. It
 // corresponds to the API's ShiftAssignmentRequest.
 type ShiftRequest struct {
-	// ID is the optional caller-supplied identifier for the plan.
+	// ID is the optional caller-supplied identifier for the plan; it becomes the job
+	// id. 1 to 256 characters from A-Z, a-z, 0-9, '-', '_', '.' or '~', but not "."
+	// or ".." on their own. Omit it to have one generated.
 	ID *string `json:"id,omitempty"`
 	// Name is the plan display name.
 	Name *string `json:"name,omitempty"`
@@ -27,7 +29,8 @@ type ShiftRequest struct {
 	// Hook is an optional callback URL invoked when solving completes.
 	Hook *string `json:"hook,omitempty"`
 	// Weights holds per-constraint weight overrides keyed by constraint name, in
-	// the form Xhard/Ymedium/Zsoft, e.g. {"shiftOffRequest": "0hard/0medium/4soft"}.
+	// the form Xhard/Ymedium/Zsoft, e.g. {"shiftOffRequest": "0hard/0medium/4soft"},
+	// with non-negative integers of at most 1000000000 per level.
 	// The server models this as an open map (additionalProperties: string), so any
 	// constraint key and score string passes through unchanged.
 	Weights map[string]string `json:"weights,omitempty"`
@@ -55,9 +58,13 @@ type ShiftAssignment struct {
 	CostFactor *float64 `json:"costFactor,omitempty"`
 	// Value is the number of employees this shift needs. The solver expands a shift with
 	// value > 1 into one entity per required employee, named "{name}#1", "{name}#2", ... and
-	// carrying OriginalName. Omit for the solver default (1).
+	// carrying OriginalName. Omit for the solver default (1). The request-size limit on
+	// shifts counts these slots: the sum of every shift's value.
 	Value *int `json:"value,omitempty"`
-	// Priority is the relative priority of staffing this shift. Omit for the solver default (5).
+	// Priority is how important it is to staff this shift, from 1 (least important) to 10
+	// (most important). When not every shift can be staffed, leaving a higher-priority shift
+	// unassigned always costs more than leaving a lower-priority one, whatever the request
+	// order. Omit for the solver default (5).
 	Priority *int `json:"priority,omitempty"`
 	// OriginalName is the name of the shift this one was expanded from when a shift needs
 	// several employees; the solver splits it into one instance per required employee.
@@ -235,7 +242,8 @@ type ShiftResultResponse struct {
 	Feasible *bool `json:"feasible,omitempty"`
 	// ScoreString is the final score as a solver score string.
 	ScoreString *string `json:"scoreString,omitempty"`
-	// Score is the score broken down into its component levels.
+	// Score is the score broken down into its component levels (hardScore, mediumScore,
+	// softScore, 64-bit integers) plus feasible and zero. nil until the solver has a score.
 	Score map[string]interface{} `json:"score,omitempty"`
 	// UnassignedShifts are the shifts the solver could not staff.
 	UnassignedShifts []ShiftAssignment `json:"unassignedShifts,omitempty"`
