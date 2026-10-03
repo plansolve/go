@@ -74,6 +74,24 @@ func TestScoreUnmarshalUnsolvedYieldsNoScore(t *testing.T) {
 	}
 }
 
+func TestScoreUnmarshalPartialPlanYieldsRealScore(t *testing.T) {
+	// A time limit stopped the solver before it considered every unit of
+	// work: solutionInitialized is false, but the levels are real and must
+	// not be discarded.
+	raw := `{"score":{"hardScore":0,"mediumScore":0,"softScore":-400,` +
+		`"feasible":true,"solutionInitialized":false}}`
+	var h scoreHolder
+	if err := json.Unmarshal([]byte(raw), &h); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if h.Score == nil {
+		t.Fatal("expected a score")
+	}
+	if h.Score.Hard != 0 || h.Score.Medium != 0 || h.Score.Soft != -400 {
+		t.Errorf("got %+v", *h.Score)
+	}
+}
+
 func TestScoreUnmarshalEmptyAndNull(t *testing.T) {
 	// Review Focus 2: field service sends "" while solving. Polling hits the
 	// result endpoint repeatedly, so this must not error.

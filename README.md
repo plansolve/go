@@ -88,6 +88,24 @@ Each field exposes the same methods. Every method takes a `context.Context` firs
 | `WaitForCompletion(ctx, jobID, pollIntervalMs, maxAttempts)` | Polls until the solve finishes, then returns the result |
 | `StartAndWaitForCompletion(ctx, request, pollIntervalMs, maxAttempts)` | `Start` followed by `WaitForCompletion` |
 
+## Score
+
+`plansolve.Score` is a type alias for `solver.Score` (the type itself lives in the leaf `solver` package to avoid an import cycle with the per-service subpackages, but `plansolve.Score` works the same everywhere). It has `Hard`, `Medium` and `Soft` fields (`int64`); a solution is feasible when `Hard >= 0`. `plansolve.ParseScore(value string) (Score, error)` parses the canonical `"Xhard/Ymedium/Zsoft"` form, and a `Score` marshals back to JSON as that same string.
+
+Score fields on the result and status responses are `*solver.Score`: `nil` while a job is still solving, and also for a job the solver has not scored yet.
+
+```go
+result, err := client.FieldService.GetResult(ctx, jobID)
+if err != nil {
+	log.Fatal(err)
+}
+if result.Score != nil {
+	fmt.Printf("%s (feasible: %t)\n", result.Score, result.Score.Hard >= 0)
+}
+```
+
+`scoreString` no longer exists on the Shift and Professional Services result responses — use the typed `Score` instead.
+
 ## Polling
 
 The wait methods take `pollIntervalMs, maxAttempts` (both `int`). When `pollIntervalMs <= 0` it defaults to `5000`, and when `maxAttempts <= 0` it defaults to `150`, so the default budget is 5 s x 150 = 12.5 minutes. That leaves headroom over the server's 10-minute cap on a single solve. `WaitForCompletion` waits one interval before its first status check.

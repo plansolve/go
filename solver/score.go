@@ -90,7 +90,8 @@ type scoreObject struct {
 // UnmarshalJSON.
 //
 // nil is returned for: absent or null input, the empty string field service
-// sends while solving, and an object flagged solutionInitialized false.
+// sends while solving, and the server's all-zero placeholder object (all
+// three levels zero and flagged solutionInitialized false).
 func ParseScoreJSON(data []byte) (*Score, error) {
 	if len(data) == 0 || string(data) == "null" {
 		return nil, nil
@@ -112,12 +113,16 @@ func ParseScoreJSON(data []byte) (*Score, error) {
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return nil, fmt.Errorf("score must be a score string or a score object: %w", err)
 	}
-	// An unscored solution sends zeros with solutionInitialized false.
-	if obj.SolutionInitialized != nil && !*obj.SolutionInitialized {
-		return nil, nil
-	}
 	if obj.HardScore == nil || obj.MediumScore == nil || obj.SoftScore == nil {
 		return nil, fmt.Errorf("score object must have hardScore, mediumScore and softScore")
+	}
+	// An unscored solution sends zeros with solutionInitialized false. A
+	// partial plan (time limit stopped the solver early) also sends
+	// solutionInitialized false, but with real, non-zero levels - that is a
+	// meaningful score and must not be discarded.
+	allZero := *obj.HardScore == 0 && *obj.MediumScore == 0 && *obj.SoftScore == 0
+	if obj.SolutionInitialized != nil && !*obj.SolutionInitialized && allZero {
+		return nil, nil
 	}
 	return &Score{Hard: *obj.HardScore, Medium: *obj.MediumScore, Soft: *obj.SoftScore}, nil
 }
