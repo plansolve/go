@@ -221,3 +221,18 @@ func TestCanDeserializeExtendedVehicleAndVisitFields(t *testing.T) {
 		t.Errorf("expected visit pinned true, got %v", vis.Pinned)
 	}
 }
+
+func TestVisitWithoutPriorityOmitsIt(t *testing.T) {
+	data, err := json.Marshal(Visit{ID: "visit-1", Name: "Visit 1", ServiceDuration: "PT30M"})
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if strings.Contains(string(data), `"priority"`) {
+		t.Errorf("expected no priority property, got %s", data)
+	}
+
+	data, _ = json.Marshal(Visit{ID: "visit-1", Priority: "HIGH"})
+	if !strings.Contains(string(data), `"priority":"HIGH"`) {
+		t.Errorf("expected priority HIGH, got %s", data)
+	}
+}

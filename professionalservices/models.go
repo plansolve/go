@@ -115,8 +115,9 @@ type Task struct {
 	Duration string `json:"duration"`
 	// DurationByEmployee holds per-employee duration overrides keyed by employee id, falling back to Duration.
 	DurationByEmployee map[string]string `json:"durationByEmployee,omitempty"`
-	// Priority is the scheduling priority (e.g. LOW, MEDIUM, HIGH).
-	Priority string `json:"priority"`
+	// Priority is the scheduling priority (LOW, MEDIUM or HIGH). Optional: left
+	// empty, it is omitted and the API plans the task as MEDIUM.
+	Priority string `json:"priority,omitempty"`
 	// PriorityValue is the numeric urgency, higher being more important; it overrides Priority (worth HIGH 100,
 	// MEDIUM 50, LOW 25) to rank tasks inside a tier.
 	PriorityValue *int `json:"priorityValue,omitempty"`

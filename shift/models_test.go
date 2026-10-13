@@ -320,10 +320,12 @@ func TestCanDeserializeShiftRequestFromJSON(t *testing.T) {
 }
 
 func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
+	// The API sends assignedShifts and unassignedShifts as shift names; the shift
+	// positions, with their assigned employee, are in shifts.
 	jsonStr := `{
 		"feasible": true,
 		"score": {"hardScore": 0, "mediumScore": 0, "softScore": -120, "solutionInitialized": true},
-		"assignedShifts": [
+		"shifts": [
 			{
 				"name": "Morning#1",
 				"from": "2024-01-15T06:00:00",
@@ -335,9 +337,7 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 				"originalName": "Morning",
 				"pinnedByUser": false,
 				"assignedEmployee": "alice"
-			}
-		],
-		"unassignedShifts": [
+			},
 			{
 				"name": "Night",
 				"from": "2024-01-15T22:00:00",
@@ -346,6 +346,8 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 				"assignedEmployee": null
 			}
 		],
+		"assignedShifts": ["Morning#1"],
+		"unassignedShifts": ["Night"],
 		"employees": [
 			{"id": "alice", "name": "Alice", "contract": "FULL_TIME", "skills": ["Nursing"], "costPerHour": 30}
 		]
@@ -363,10 +365,17 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 		t.Errorf("expected soft -120, got %+v", result.Score)
 	}
 
-	if len(result.AssignedShifts) != 1 {
-		t.Fatalf("expected 1 assigned shift, got %d", len(result.AssignedShifts))
+	if len(result.AssignedShifts) != 1 || result.AssignedShifts[0] != "Morning#1" {
+		t.Fatalf("expected assignedShifts [Morning#1], got %v", result.AssignedShifts)
 	}
-	assigned := result.AssignedShifts[0]
+	if len(result.UnassignedShifts) != 1 || result.UnassignedShifts[0] != "Night" {
+		t.Fatalf("expected unassignedShifts [Night], got %v", result.UnassignedShifts)
+	}
+
+	if len(result.Shifts) != 2 {
+		t.Fatalf("expected 2 shifts, got %d", len(result.Shifts))
+	}
+	assigned := result.Shifts[0]
 	if assigned.AssignedEmployee == nil || *assigned.AssignedEmployee != "alice" {
 		t.Errorf("expected assignedEmployee 'alice', got %v", assigned.AssignedEmployee)
 	}
@@ -376,14 +385,11 @@ func TestCanDeserializeShiftResultResponseFromJSON(t *testing.T) {
 	if assigned.CostFactor == nil || *assigned.CostFactor != 1.0 {
 		t.Errorf("expected costFactor 1.0, got %v", assigned.CostFactor)
 	}
-
-	if len(result.UnassignedShifts) != 1 {
-		t.Fatalf("expected 1 unassigned shift, got %d", len(result.UnassignedShifts))
+	unassigned := result.Shifts[1]
+	if unassigned.AssignedEmployee != nil {
+		t.Errorf("expected unassigned shift to have nil assignedEmployee, got %v", *unassigned.AssignedEmployee)
 	}
-	if result.UnassignedShifts[0].AssignedEmployee != nil {
-		t.Errorf("expected unassigned shift to have nil assignedEmployee, got %v", *result.UnassignedShifts[0].AssignedEmployee)
-	}
-	if result.UnassignedShifts[0].Value != nil || result.UnassignedShifts[0].Priority != nil {
+	if unassigned.Value != nil || unassigned.Priority != nil {
 		t.Errorf("expected absent value/priority to stay nil")
 	}
 
@@ -417,9 +423,7 @@ func TestShiftResultResponseEchoesRequestFields(t *testing.T) {
 		"constraintWeightOverrides": {"shiftOffRequest": "0hard/0medium/4soft"},
 		"feasible": true,
 		"score": {"hardScore": 0, "mediumScore": 0, "softScore": -120, "solutionInitialized": true},
-		"assignedShifts": [
-			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00", "pinnedByUser": false, "assignedEmployee": "alice"}
-		],
+		"assignedShifts": ["Morning"],
 		"unassignedShifts": [],
 		"employees": [
 			{"id": "alice", "name": "Alice", "contract": "FULL_TIME", "skills": ["Nursing"], "costPerHour": 0}

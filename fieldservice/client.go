@@ -163,6 +163,8 @@ func (c *Client) Analyze(ctx context.Context, jobID string) (map[string]interfac
 }
 
 // Stop stops an in-progress field service solve and returns the best solution found so far.
+// A job still waiting in the queue is cancelled instead; Stop then returns a
+// *solver.JobCancelledError and no result.
 func (c *Client) Stop(ctx context.Context, jobID string) (*FieldServiceResultResponse, error) {
 	url := fmt.Sprintf("%s%s/%s", c.baseURL, routeFieldServiceSolve, jobID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
@@ -180,13 +182,19 @@ func (c *Client) Stop(ctx context.Context, jobID string) (*FieldServiceResultRes
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if err := solver.CheckCancelled(respBody, jobID); err != nil {
+		return nil, err
 	}
 
 	var result FieldServiceResultResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 

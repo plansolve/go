@@ -213,7 +213,8 @@ type ShiftStartResponse struct {
 
 // ShiftResultResponse is the response from getting shift optimization results.
 // It corresponds to the API's ShiftAssignmentResponse: the echoed input PLUS
-// the solution (feasible, score, unassignedShifts, assignedShifts).
+// the solution (feasible, score, unassignedShifts, assignedShifts). The two
+// lists hold shift names; the assignment of each shift is in Shifts.
 // Each shift carries its own AssignedEmployee; there is no employee-side
 // back-reference. It carries no jobId on the wire.
 type ShiftResultResponse struct {
@@ -249,10 +250,12 @@ type ShiftResultResponse struct {
 	// Score is the optimization score from the solver. nil until the solver
 	// has scored the solution.
 	Score *solver.Score `json:"score,omitempty"`
-	// UnassignedShifts are the shifts the solver could not staff.
-	UnassignedShifts []ShiftAssignment `json:"unassignedShifts,omitempty"`
-	// AssignedShifts are the shifts the solver successfully staffed.
-	AssignedShifts []ShiftAssignment `json:"assignedShifts,omitempty"`
+	// UnassignedShifts are the names of the shift positions the solver could not
+	// staff. The positions themselves are in Shifts.
+	UnassignedShifts []string `json:"unassignedShifts,omitempty"`
+	// AssignedShifts are the names of the shift positions the solver staffed. Read
+	// who works each one from Shifts (AssignedEmployee).
+	AssignedShifts []string `json:"assignedShifts,omitempty"`
 }
 
 // UnmarshalJSON decodes the response, routing the score field through

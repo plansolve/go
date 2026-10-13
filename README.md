@@ -84,7 +84,7 @@ Each field exposes the same methods. Every method takes a `context.Context` firs
 | `GetStatus(ctx, jobID)` | Returns the current `SolverStatusResponse` |
 | `GetResult(ctx, jobID)` | Returns the solver's result type |
 | `Analyze(ctx, jobID)` | Returns the constraint analysis as `map[string]interface{}` (`GET /api/v1/{solver}/{jobId}/analyze`) |
-| `Stop(ctx, jobID)` | Stops an in-progress solve and returns the best solution so far, same type as `GetResult` (`DELETE /api/v1/{solver}/{jobId}`) |
+| `Stop(ctx, jobID)` | Stops an in-progress solve and returns the best solution so far, same type as `GetResult` (`DELETE /api/v1/{solver}/{jobId}`). A job still waiting in the queue is cancelled instead and returns a `*solver.JobCancelledError` with no result. |
 | `WaitForCompletion(ctx, jobID, pollIntervalMs, maxAttempts)` | Polls until the solve finishes, then returns the result |
 | `StartAndWaitForCompletion(ctx, request, pollIntervalMs, maxAttempts)` | `Start` followed by `WaitForCompletion` |
 
@@ -129,6 +129,7 @@ Methods return a plain `error` whose message is already readable. The library ne
 |-----------|-------|
 | Non-2xx HTTP response | `API error: status <code>: <message>`. A `400` lists the field validation messages, a `402` or `422` carries the body's `error`, a `401`, `403`, or `502` carries the problem `detail` (or `title`). |
 | Solve failed | The status endpoint answers `422`, so the wait methods return `API error: status 422: <message>`. |
+| `Stop` on a job that had not started solving | `*solver.JobCancelledError` (match with `errors.As`): the job is cancelled and no plan exists |
 | Poll budget exhausted | `solver still running after N polls; raise maxAttempts or lower options.spentLimit` |
 | Empty job ID passed to `WaitForCompletion` | `jobId was not provided` |
 | Context cancelled or timed out | `ctx.Err()` (`context.Canceled` or `context.DeadlineExceeded`) |

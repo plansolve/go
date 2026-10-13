@@ -12,6 +12,19 @@ const (
 	JobStatusFailed JobStatus = 2
 	// JobStatusLost indicates the job's outcome could not be determined.
 	JobStatusLost JobStatus = 3
+	// JobStatusCancelled indicates the job was stopped while still waiting in the
+	// queue, before solving started; no plan was produced and nothing was billed.
+	JobStatusCancelled JobStatus = 4
+)
+
+// Solver families reported in JobDto.SolverType, untyped so the int field stays unchanged.
+const (
+	// SolverTypeFieldService is a Field Service (vehicle routing) job.
+	SolverTypeFieldService = 0
+	// SolverTypeShift is a Shift scheduling job.
+	SolverTypeShift = 1
+	// SolverTypeProfessionalServices is a Professional Services (task assignment) job.
+	SolverTypeProfessionalServices = 2
 )
 
 // CreateJobRequest is the payload for creating a new solver job via the public Jobs API.
@@ -39,7 +52,7 @@ type JobDto struct {
 	// SubscriptionID is the subscription the job was charged against.
 	SubscriptionID int `json:"subscriptionId"`
 	// SolverType is the solver family that produced the job (0 = Field Service,
-	// 1 = Professional Services, 2 = Shift).
+	// 1 = Shift, 2 = Professional Services); compare with the SolverType* constants.
 	SolverType int `json:"solverType"`
 	// Status is the lifecycle state of the job.
 	Status JobStatus `json:"status"`
@@ -56,6 +69,9 @@ type JobDto struct {
 	HasResponse bool `json:"hasResponse"`
 	// BilledItems is the number of schedulable items billed for this job.
 	BilledItems int `json:"billedItems"`
+	// EstimatedItems is the number of schedulable items estimated for the job when
+	// it was submitted, or nil when no estimate was recorded.
+	EstimatedItems *int `json:"estimatedItems,omitempty"`
 	// UserID identifies the user who submitted the job, or nil for API-key/system runs.
 	UserID *int `json:"userId,omitempty"`
 	// UserName is the display name of the user who submitted the job.

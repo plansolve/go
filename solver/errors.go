@@ -2,6 +2,7 @@ package solver
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -83,4 +84,30 @@ func stringField(obj map[string]json.RawMessage, key string) string {
 		return ""
 	}
 	return s
+}
+
+// JobCancelledError is returned by Stop when the job was still waiting in the
+// queue: the API cancels it instead of stopping a solve, and no plan exists.
+type JobCancelledError struct {
+	// JobID is the id of the cancelled job.
+	JobID string
+	// Message is the API's explanation.
+	Message string
+}
+
+func (e *JobCancelledError) Error() string {
+	return fmt.Sprintf("job %s was cancelled: %s", e.JobID, e.Message)
+}
+
+// CheckCancelled returns a *JobCancelledError when a stop response body is the
+// API's cancelled marker rather than a plan, or nil otherwise.
+func CheckCancelled(body []byte, jobID string) error {
+	var marker struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &marker); err != nil || marker.Status != "cancelled" {
+		return nil
+	}
+	return &JobCancelledError{JobID: jobID, Message: marker.Message}
 }

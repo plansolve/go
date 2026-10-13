@@ -2,6 +2,7 @@ package fieldservice
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -156,5 +157,27 @@ func TestWaitForCompletionRequiresJobID(t *testing.T) {
 	_, err := client.WaitForCompletion(context.Background(), "", 1, 1)
 	if err == nil || err.Error() != "jobId was not provided" {
 		t.Errorf("expected 'jobId was not provided', got %v", err)
+	}
+}
+
+func TestStopReturnsJobCancelledErrorForQueuedJob(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"jobId":"job-queued","status":"cancelled","message":"Stopped before solving started; no plan was produced."}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.Client(), server.URL, "test-key")
+
+	result, err := client.Stop(context.Background(), "job-queued")
+	if result != nil {
+		t.Errorf("expected no result for a cancelled job, got %+v", result)
+	}
+	var cancelled *solver.JobCancelledError
+	if !errors.As(err, &cancelled) {
+		t.Fatalf("expected *solver.JobCancelledError, got %T", err)
+	}
+	if cancelled.JobID != "job-queued" || cancelled.Message != "Stopped before solving started; no plan was produced." {
+		t.Errorf("unexpected cancelled error: %+v", cancelled)
 	}
 }

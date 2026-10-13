@@ -696,3 +696,13 @@ func TestCanSerializeOptionsToJSON(t *testing.T) {
 		t.Errorf("expected nil options to be omitted, got %s", data)
 	}
 }
+
+func TestTaskWithoutPriorityOmitsIt(t *testing.T) {
+	data, err := json.Marshal(Task{ID: "t1", Name: "Task 1", Duration: "PT1H"})
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if strings.Contains(string(data), `"priority"`) {
+		t.Errorf("expected no priority property, got %s", data)
+	}
+}

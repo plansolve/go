@@ -52,8 +52,9 @@ type Visit struct {
 	TimeWindows []TimeWindow `json:"timeWindows"`
 	// ServiceDuration is the on-site service time, as an ISO-8601 duration or seconds.
 	ServiceDuration string `json:"serviceDuration"`
-	// Priority is the relative importance of servicing the visit (e.g. LOW, MEDIUM, HIGH).
-	Priority string `json:"priority"`
+	// Priority is the relative importance of servicing the visit (LOW, MEDIUM or
+	// HIGH). Optional: left empty, it is omitted and the API plans the visit as MEDIUM.
+	Priority string `json:"priority,omitempty"`
 	// RequiredSkills are the skills a vehicle must have to service this visit.
 	RequiredSkills []string `json:"requiredSkills"`
 	// Pinned, when true, locks the existing assignment and leaves it unchanged by the solver.
