@@ -213,8 +213,7 @@ type ShiftStartResponse struct {
 
 // ShiftResultResponse is the response from getting shift optimization results.
 // It corresponds to the API's ShiftAssignmentResponse: the echoed input PLUS
-// the solution (feasible, score, unassignedShifts, assignedShifts). The two
-// lists hold shift names; the assignment of each shift is in Shifts.
+// the solution (feasible, score, unassignedShifts, assignedShifts).
 // Each shift carries its own AssignedEmployee; there is no employee-side
 // back-reference. It carries no jobId on the wire.
 type ShiftResultResponse struct {
@@ -250,21 +249,26 @@ type ShiftResultResponse struct {
 	// Score is the optimization score from the solver. nil until the solver
 	// has scored the solution.
 	Score *solver.Score `json:"score,omitempty"`
-	// UnassignedShifts are the names of the shift positions the solver could not
-	// staff. The positions themselves are in Shifts.
-	UnassignedShifts []string `json:"unassignedShifts,omitempty"`
-	// AssignedShifts are the names of the shift positions the solver staffed. Read
-	// who works each one from Shifts (AssignedEmployee).
-	AssignedShifts []string `json:"assignedShifts,omitempty"`
+	// UnassignedShifts are the shift positions the solver could not staff; their
+	// AssignedEmployee is nil.
+	UnassignedShifts []ShiftAssignment `json:"unassignedShifts,omitempty"`
+	// AssignedShifts are the shift positions the solver staffed, each with its
+	// AssignedEmployee. A shift with value > 1 is listed once per position
+	// ("{name}#1", "{name}#2", ...).
+	AssignedShifts []ShiftAssignment `json:"assignedShifts,omitempty"`
 }
 
 // UnmarshalJSON decodes the response, routing the score field through
 // solver.ParseScoreJSON so both wire shapes - and the absence of a score -
-// are handled in one place.
+// are handled in one place. An older API sent assignedShifts and
+// unassignedShifts as bare shift names; those are resolved against Shifts
+// (plansolve/issues#173).
 func (r *ShiftResultResponse) UnmarshalJSON(data []byte) error {
 	type alias ShiftResultResponse
 	aux := &struct {
-		Score json.RawMessage `json:"score"`
+		Score            json.RawMessage   `json:"score"`
+		UnassignedShifts []json.RawMessage `json:"unassignedShifts"`
+		AssignedShifts   []json.RawMessage `json:"assignedShifts"`
 		*alias
 	}{alias: (*alias)(r)}
 	if err := json.Unmarshal(data, aux); err != nil {
@@ -275,5 +279,43 @@ func (r *ShiftResultResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	r.Score = score
+	if r.UnassignedShifts, err = r.decodeShiftEntries(aux.UnassignedShifts); err != nil {
+		return err
+	}
+	if r.AssignedShifts, err = r.decodeShiftEntries(aux.AssignedShifts); err != nil {
+		return err
+	}
 	return nil
+}
+
+// decodeShiftEntries reads each entry as a shift object, or as a shift name
+// looked up in Shifts. A name missing from Shifts becomes a shift with only
+// that name.
+func (r *ShiftResultResponse) decodeShiftEntries(entries []json.RawMessage) ([]ShiftAssignment, error) {
+	if entries == nil {
+		return nil, nil
+	}
+	shifts := make([]ShiftAssignment, 0, len(entries))
+	for _, entry := range entries {
+		var name string
+		if err := json.Unmarshal(entry, &name); err == nil {
+			shifts = append(shifts, r.shiftNamed(name))
+			continue
+		}
+		var shift ShiftAssignment
+		if err := json.Unmarshal(entry, &shift); err != nil {
+			return nil, err
+		}
+		shifts = append(shifts, shift)
+	}
+	return shifts, nil
+}
+
+func (r *ShiftResultResponse) shiftNamed(name string) ShiftAssignment {
+	for _, shift := range r.Shifts {
+		if shift.Name != nil && *shift.Name == name {
+			return shift
+		}
+	}
+	return ShiftAssignment{Name: &name}
 }

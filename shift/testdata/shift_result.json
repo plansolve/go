@@ -1,0 +1,35 @@
+{
+  "id": "d4e5b85d-8615-4f2e-a0a4-e3b66625c54e",
+  "name": null,
+  "description": null,
+  "contracts": [
+    { "name": "FULL_TIME", "maxWorkDurationPerWeek": "PT40H", "minWorkDurationPerWeek": "PT32H", "maxConsecutiveWorkDays": 5, "minRestBetweenShifts": "PT11H" }
+  ],
+  "shifts": [
+    { "name": "morning_2026-04-06#1", "from": "2026-04-06T06:00:00", "to": "2026-04-06T14:00:00", "skills": ["nursing"], "desiredSkills": [], "tags": [], "costFactor": 1.0, "value": 1, "priority": 5, "originalName": "morning_2026-04-06", "pinnedByUser": false, "assignedEmployee": "alice" },
+    { "name": "morning_2026-04-06#2", "from": "2026-04-06T06:00:00", "to": "2026-04-06T14:00:00", "skills": ["nursing"], "desiredSkills": [], "tags": [], "costFactor": 1.0, "value": 1, "priority": 5, "originalName": "morning_2026-04-06", "pinnedByUser": false, "assignedEmployee": null },
+    { "name": "night_2026-04-06", "from": "2026-04-06T22:00:00", "to": "2026-04-07T06:00:00", "skills": ["nursing", "first_aid"], "desiredSkills": [], "tags": [], "costFactor": 1.0, "value": 1, "priority": 5, "originalName": null, "pinnedByUser": false, "assignedEmployee": "carol" }
+  ],
+  "employees": [
+    { "id": "alice", "name": "Alice", "contract": "FULL_TIME", "skills": ["nursing", "first_aid"], "preferredShifts": ["morning_2026-04-06"], "lastShiftEnd": null, "tags": [], "costPerHour": 0.0 },
+    { "id": "bob", "name": "Bob", "contract": "FULL_TIME", "skills": ["nursing"], "lastShiftEnd": null, "tags": [], "costPerHour": 0.0 },
+    { "id": "carol", "name": "Carol", "contract": "FULL_TIME", "skills": ["nursing", "first_aid"], "preferredShifts": ["night_2026-04-06"], "lastShiftEnd": null, "tags": [], "costPerHour": 0.0 }
+  ],
+  "timeOffRequests": [],
+  "unavailabilities": [
+    { "id": "u1", "employeeId": "bob", "from": "2026-04-06T00:00:00", "to": "2026-04-07T00:00:00" }
+  ],
+  "shiftOffRequests": [],
+  "fairness": null,
+  "hook": null,
+  "constraintWeightOverrides": {},
+  "score": { "hardScore": 0, "mediumScore": -10000, "softScore": -2220, "feasible": true, "solutionInitialized": true },
+  "feasible": true,
+  "unassignedShifts": [
+    { "name": "morning_2026-04-06#2", "from": "2026-04-06T06:00:00", "to": "2026-04-06T14:00:00", "skills": ["nursing"], "desiredSkills": [], "tags": [], "costFactor": 1.0, "value": 1, "priority": 5, "originalName": "morning_2026-04-06", "pinnedByUser": false, "assignedEmployee": null }
+  ],
+  "assignedShifts": [
+    { "name": "morning_2026-04-06#1", "from": "2026-04-06T06:00:00", "to": "2026-04-06T14:00:00", "skills": ["nursing"], "desiredSkills": [], "tags": [], "costFactor": 1.0, "value": 1, "priority": 5, "originalName": "morning_2026-04-06", "pinnedByUser": false, "assignedEmployee": "alice" },
+    { "name": "night_2026-04-06", "from": "2026-04-06T22:00:00", "to": "2026-04-07T06:00:00", "skills": ["nursing", "first_aid"], "desiredSkills": [], "tags": [], "costFactor": 1.0, "value": 1, "priority": 5, "originalName": null, "pinnedByUser": false, "assignedEmployee": "carol" }
+  ]
+}
