@@ -106,6 +106,21 @@ if result.Score != nil {
 
 `scoreString` no longer exists on the Shift and Professional Services result responses — use the typed `Score` instead.
 
+## Shift results
+
+`shift.ShiftResultResponse.AssignedShifts` and `UnassignedShifts` are `[]shift.ShiftAssignment`: each entry has `Name`, `From`, `To` and the employee the solver chose in `AssignedEmployee` (`nil` for an unassigned shift). These fields are pointers. A shift with `Value > 1` is listed once per position, as `"{name}#1"`, `"{name}#2"`, ... `Shifts` holds every position, assigned or not.
+
+```go
+result, err := client.Shift.GetResult(ctx, jobID)
+if err != nil {
+	log.Fatal(err)
+}
+for _, s := range result.AssignedShifts {
+	fmt.Printf("%s: %s -> %s (%s)\n", *s.Name, *s.From, *s.To, *s.AssignedEmployee)
+}
+fmt.Printf("%d shift(s) could not be filled\n", len(result.UnassignedShifts))
+```
+
 ## Polling
 
 The wait methods take `pollIntervalMs, maxAttempts` (both `int`). When `pollIntervalMs <= 0` it defaults to `5000`, and when `maxAttempts <= 0` it defaults to `150`, so the default budget is 5 s x 150 = 12.5 minutes. That leaves headroom over the server's 10-minute cap on a single solve. `WaitForCompletion` waits one interval before its first status check.
