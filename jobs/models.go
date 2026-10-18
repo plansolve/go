@@ -28,10 +28,8 @@ const (
 )
 
 // CreateJobRequest is the payload for creating a new solver job via the public Jobs API.
+// The job is billed against the tenant's subscription for the named solver.
 type CreateJobRequest struct {
-	// SubscriptionID is the subscription the job should be billed against. Resolved
-	// server-side from the authenticated tenant when omitted by the caller.
-	SubscriptionID *int `json:"subscriptionId,omitempty"`
 	// SolverID identifies the solver/model to run (e.g. field_service,
 	// professional_services, shift).
 	SolverID string `json:"solverId"`

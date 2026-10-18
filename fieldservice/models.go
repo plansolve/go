@@ -58,6 +58,9 @@ type Visit struct {
 	// RequiredSkills are the skills a vehicle must have to service this visit.
 	RequiredSkills []string `json:"requiredSkills"`
 	// Pinned, when true, locks the existing assignment and leaves it unchanged by the solver.
+	// The pinned service (from StartServiceTime for ServiceDuration) must fit one of the
+	// visit's time windows and one of the pinned vehicle's shifts; a request that pins a
+	// visit elsewhere is rejected.
 	Pinned *bool `json:"pinned,omitempty"`
 	// Vehicle is the solution id of the vehicle assigned to the visit.
 	Vehicle *string `json:"vehicle,omitempty"`
@@ -83,9 +86,11 @@ type Shift struct {
 
 // TimeWindow represents a time window for a visit.
 type TimeWindow struct {
-	// MinStartTime is the earliest permitted service start, as an ISO-8601 timestamp.
+	// MinStartTime is the earliest permitted service start, as a local ISO-8601
+	// timestamp without a time zone or offset (e.g. 2026-09-21T08:00:00).
 	MinStartTime string `json:"minStartTime"`
-	// MaxEndTime is the latest permitted service end, as an ISO-8601 timestamp.
+	// MaxEndTime is the latest permitted service end, as a local ISO-8601 timestamp
+	// without a time zone or offset; must be later than MinStartTime.
 	MaxEndTime string `json:"maxEndTime"`
 }
 
@@ -97,18 +102,9 @@ type SolverOptions struct {
 	UnimprovedSpentLimit *string `json:"unimprovedSpentLimit,omitempty"`
 }
 
-// FieldServiceStartResponse is the response from starting a field service
-// optimization. It mirrors the API's SolverJobResponse shape.
-type FieldServiceStartResponse struct {
-	// JobID is the public PlanSolve job identifier - use it to poll status and fetch the solution.
-	JobID string `json:"jobId"`
-	// SolverJobID is the underlying solver engine's job identifier, when exposed.
-	SolverJobID *string `json:"solverJobId,omitempty"`
-	// Result is the inline solver result as raw JSON, when available synchronously.
-	Result *string `json:"result,omitempty"`
-	// Error is the error message when the solve request could not be accepted or run.
-	Error *string `json:"error,omitempty"`
-}
+// FieldServiceStartResponse is the response from starting a field service optimization. It is the
+// API's SolverJobResponse, shared with the other solvers and Jobs.CreateJob.
+type FieldServiceStartResponse = solver.SolverJobResponse
 
 // Spec-name aliases. The API contract names the result model FieldServiceSolution
 // and its sub-types ExtendedVehicle / ExtendedVisit; the SDK keeps its idiomatic

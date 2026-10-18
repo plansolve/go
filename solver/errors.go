@@ -8,15 +8,16 @@ import (
 )
 
 // ExtractErrorMessage turns an HTTP error response body into a clean, human
-// readable message. It understands the three error body shapes the PlanSolve
+// readable message. It understands the four error body shapes the PlanSolve
 // API documents:
 //
 //   - ValidationProblemDetails (400): {"errors": {"<field>": ["<msg>", ...]}}
-//   - ErrorResponse (402/422):        {"error": "<string>", "traceId": "<string>"}
+//   - ErrorResponse (402/409/422):    {"error": "<string>", "traceId": "<string>"}
+//   - ApiError (415):                 {"code": "...", "message": "...", "traceId": "..."}
 //   - ProblemDetails (401/403/502):   {"detail": "...", "title": "..."}
 //
-// Priority mirrors the other SDKs: errors(validation) > error > detail > title
-// > raw body. If the body is not a JSON object, the raw body string is returned.
+// Priority mirrors the other SDKs: errors(validation) > error > message >
+// detail > title > raw body. If the body is not a JSON object, the raw body string is returned.
 //
 // When the body carries a non-empty traceId, it is appended as
 // " (traceId: <id>)" - except on the raw body fallback, where the id is already
@@ -55,8 +56,8 @@ func extractMessage(obj map[string]json.RawMessage) (string, bool) {
 		}
 	}
 
-	// ErrorResponse, then ProblemDetails: detail, then title.
-	for _, key := range []string{"error", "detail", "title"} {
+	// ErrorResponse, then ApiError, then ProblemDetails: detail, then title.
+	for _, key := range []string{"error", "message", "detail", "title"} {
 		if s := stringField(obj, key); s != "" {
 			return s, true
 		}

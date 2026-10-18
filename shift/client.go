@@ -132,7 +132,10 @@ func (c *Client) GetResult(ctx context.Context, jobID string) (*ShiftResultRespo
 }
 
 // Analyze gets analysis for a completed shift optimization job.
-func (c *Client) Analyze(ctx context.Context, jobID string) (map[string]interface{}, error) {
+// It breaks the finished plan's score down per constraint, with the matches
+// behind each one. The API answers 409 while the job has not finished and 422
+// when it failed, was lost or was cancelled; both surface as an error.
+func (c *Client) Analyze(ctx context.Context, jobID string) (*solver.ScoreAnalysisResponse, error) {
 	url := fmt.Sprintf("%s%s/%s/analyze", c.baseURL, routeShiftSolve, jobID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -154,12 +157,12 @@ func (c *Client) Analyze(ctx context.Context, jobID string) (map[string]interfac
 		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
 	}
 
-	var result map[string]interface{}
+	var result solver.ScoreAnalysisResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return result, nil
+	return &result, nil
 }
 
 // Stop stops an in-progress shift solve and returns the best solution found so far.

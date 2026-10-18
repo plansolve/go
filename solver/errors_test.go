@@ -23,6 +23,21 @@ func TestExtractErrorMessage(t *testing.T) {
 			want: "insufficient credits",
 		},
 		{
+			name: "api error message",
+			body: `{"code":"unsupported_media_type","message":"Content-Type must be application/json"}`,
+			want: "Content-Type must be application/json",
+		},
+		{
+			name: "error wins over message",
+			body: `{"error":"insufficient credits","message":"ignored"}`,
+			want: "insufficient credits",
+		},
+		{
+			name: "message wins over detail",
+			body: `{"message":"from message","detail":"from detail","title":"T"}`,
+			want: "from message",
+		},
+		{
 			name: "problem details detail",
 			body: `{"type":"t","title":"Unauthorized","status":401,"detail":"API key is invalid"}`,
 			want: "API key is invalid",
@@ -74,6 +89,11 @@ func TestExtractErrorMessageTraceID(t *testing.T) {
 			name: "appended to the error string",
 			body: `{"error":"insufficient credits","traceId":"00-abc-01"}`,
 			want: "insufficient credits (traceId: 00-abc-01)",
+		},
+		{
+			name: "appended to the api error message",
+			body: `{"code":"unsupported_media_type","message":"Content-Type must be application/json","traceId":"t415"}`,
+			want: "Content-Type must be application/json (traceId: t415)",
 		},
 		{
 			name: "appended to validation messages",

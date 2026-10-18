@@ -85,8 +85,8 @@ func TestAnalyzeCallsAnalyzeEndpoint(t *testing.T) {
 	if gotPath != "/api/v1/fieldservice/job-an/analyze" {
 		t.Errorf("expected path '/api/v1/fieldservice/job-an/analyze', got '%s'", gotPath)
 	}
-	if analysis["score"] != "0hard/0medium/-5soft" {
-		t.Errorf("expected score '0hard/0medium/-5soft', got %v", analysis["score"])
+	if analysis.Score == nil || analysis.Score.String() != "0hard/0medium/-5soft" {
+		t.Errorf("expected score '0hard/0medium/-5soft', got %v", analysis.Score)
 	}
 }
 

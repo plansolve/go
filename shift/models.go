@@ -9,9 +9,8 @@ import (
 // ShiftRequest is the request model for starting a shift optimization. It
 // corresponds to the API's ShiftAssignmentRequest.
 type ShiftRequest struct {
-	// ID is the optional caller-supplied identifier for the plan; it becomes the job
-	// id. 1 to 256 characters from A-Z, a-z, 0-9, '-', '_', '.' or '~', but not "."
-	// or ".." on their own. Omit it to have one generated.
+	// ID is the optional caller-supplied identifier for the plan. It is not used as
+	// the job id: every submission gets a new job id, returned as JobID.
 	ID *string `json:"id,omitempty"`
 	// Name is the plan display name.
 	Name *string `json:"name,omitempty"`
@@ -199,17 +198,9 @@ type ShiftOffRequest struct {
 	Weight *int `json:"weight,omitempty"`
 }
 
-// ShiftStartResponse is the response from starting a shift optimization.
-type ShiftStartResponse struct {
-	// JobID is the public PlanSolve job identifier - use it to poll status and fetch the solution.
-	JobID string `json:"jobId"`
-	// SolverJobID is the underlying solver engine's job identifier, when exposed.
-	SolverJobID *string `json:"solverJobId,omitempty"`
-	// Result is the inline solver result as raw JSON, when available synchronously.
-	Result *string `json:"result,omitempty"`
-	// Error is the error message when the solve request could not be accepted or run.
-	Error *string `json:"error,omitempty"`
-}
+// ShiftStartResponse is the response from starting a shift optimization. It is the
+// API's SolverJobResponse, shared with the other solvers and Jobs.CreateJob.
+type ShiftStartResponse = solver.SolverJobResponse
 
 // ShiftResultResponse is the response from getting shift optimization results.
 // It corresponds to the API's ShiftAssignmentResponse: the echoed input PLUS

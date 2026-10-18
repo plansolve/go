@@ -33,15 +33,17 @@ func NewClient(httpClient *http.Client, baseURL, apiKey string) *Client {
 
 // GetJobsParams holds the optional filters for listing jobs.
 type GetJobsParams struct {
-	// Page is the 1-based page index (default 1).
+	// Page is the 1-based page index (default 1); values below 1 read the first page.
 	Page int
-	// PageSize is the maximum number of items per page (default 10).
+	// PageSize is the maximum number of items per page, 1 to 100 (default 10);
+	// larger values are capped at 100.
 	PageSize int
 	// SubscriptionID, when set, only returns jobs billed against this subscription.
 	SubscriptionID *int
 	// Start, when set, only returns jobs created at or after this timestamp (ISO-8601).
 	Start *string
-	// End, when set, only returns jobs created at or before this timestamp (ISO-8601).
+	// End, when set, only returns jobs created at or before this timestamp (ISO-8601);
+	// the whole UTC day of End is included.
 	End *string
 }
 
@@ -96,8 +98,12 @@ func (c *Client) GetJobs(ctx context.Context, params GetJobsParams) (*PagedResul
 	return &result, nil
 }
 
-// CreateJob creates a new solver job.
-func (c *Client) CreateJob(ctx context.Context, request CreateJobRequest) (*JobDto, error) {
+// CreateJob creates a new solver job. It is the same as posting request.Request to
+// the solver's own create operation: SolverID picks the solver (field_service,
+// professional_services or shift) and Request carries that solver's request as a
+// JSON string. Validation, the subscription check and billing are the solver's.
+// It returns the same SolverJobResponse the solver's Start returns.
+func (c *Client) CreateJob(ctx context.Context, request CreateJobRequest) (*solver.SolverJobResponse, error) {
 	body, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -125,7 +131,7 @@ func (c *Client) CreateJob(ctx context.Context, request CreateJobRequest) (*JobD
 		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
 	}
 
-	var result JobDto
+	var result solver.SolverJobResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

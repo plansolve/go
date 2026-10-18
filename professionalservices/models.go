@@ -216,17 +216,9 @@ type AvailabilityTimeSpan struct {
 	Type *string `json:"type,omitempty"`
 }
 
-// ProfessionalServicesStartResponse is the response from starting a professional services optimization.
-type ProfessionalServicesStartResponse struct {
-	// JobID is the public PlanSolve job identifier - use it to poll status and fetch the solution.
-	JobID string `json:"jobId"`
-	// SolverJobID is the underlying solver engine's job identifier, when exposed.
-	SolverJobID *string `json:"solverJobId,omitempty"`
-	// Result is the inline solver result as raw JSON, when available synchronously.
-	Result *string `json:"result,omitempty"`
-	// Error is the error message when the solve request could not be accepted or run.
-	Error *string `json:"error,omitempty"`
-}
+// ProfessionalServicesStartResponse is the response from starting a professional services optimization. It is the
+// API's SolverJobResponse, shared with the other solvers and Jobs.CreateJob.
+type ProfessionalServicesStartResponse = solver.SolverJobResponse
 
 // ProfessionalServicesResultResponse is the response from getting professional
 // services optimization results. It corresponds to the API's
