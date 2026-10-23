@@ -96,12 +96,12 @@ func TestIsStillSolvingMatchesServerRule(t *testing.T) {
 		status solver.SolverStatusResponse
 		want   bool
 	}{
-		{"done without score", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusNotSolving}, false},
-		{"done with score", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusNotSolving, Score: &solver.Score{Hard: 0, Soft: 0}}, false},
-		{"solving flag set", solver.SolverStatusResponse{Solving: true, SolverStatus: solver.SolverStatusNotSolving}, true},
-		{"active", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusSolvingActive}, true},
-		{"scheduled", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusSolvingScheduled}, true},
-		{"terminating", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusTerminatingEarly}, true},
+		{"done without score", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusCompleted}, false},
+		{"done with score", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusCompleted, Score: &solver.Score{Hard: 0, Soft: 0}}, false},
+		{"solving flag set", solver.SolverStatusResponse{Solving: true, SolverStatus: solver.SolverStatusCompleted}, true},
+		{"active", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusSolving}, true},
+		{"scheduled", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusQueued}, true},
+		{"terminating", solver.SolverStatusResponse{Solving: false, SolverStatus: solver.SolverStatusStopping}, true},
 	}
 	for _, tc := range cases {
 		status := tc.status
@@ -115,7 +115,7 @@ func TestWaitForCompletionFinishesWithoutScore(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/status") {
-			_, _ = w.Write([]byte(`{"jobId": "job-w", "solverStatus": "NOT_SOLVING", "solving": false}`))
+			_, _ = w.Write([]byte(`{"jobId": "job-w", "status": "completed", "solverStatus": "NOT_SOLVING", "solving": false}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"vehicles": [], "visits": [], "score": "0hard/0medium/-100soft", "totalDrivingTimeSeconds": 100}`))
@@ -136,7 +136,7 @@ func TestWaitForCompletionFinishesWithoutScore(t *testing.T) {
 func TestWaitForCompletionTimesOut(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"jobId": "job-t", "solverStatus": "SOLVING_ACTIVE", "solving": true}`))
+		_, _ = w.Write([]byte(`{"jobId": "job-t", "status": "solving", "solverStatus": "SOLVING_ACTIVE", "solving": true}`))
 	}))
 	defer server.Close()
 

@@ -223,7 +223,7 @@ type ProfessionalServicesStartResponse = solver.SolverJobResponse
 // ProfessionalServicesResultResponse is the response from getting professional
 // services optimization results. It corresponds to the API's
 // ProfessionalServicesResponse: a full echo of the request PLUS the result
-// fields (solverStatus, feasible, score, unassignedTasks, assignedTasks).
+// fields (status, solverStatus, feasible, score, unassignedTasks, assignedTasks).
 type ProfessionalServicesResultResponse struct {
 	// JobID is the public job identifier this result was fetched with (stamped client-side).
 	JobID *string `json:"jobId,omitempty"`
@@ -249,7 +249,9 @@ type ProfessionalServicesResultResponse struct {
 	TaskTypes []string `json:"taskTypes,omitempty"`
 	// FreezeUntil is the echoed plan-wide freeze horizon.
 	FreezeUntil *string `json:"freezeUntil,omitempty"`
-	// SolverStatus is the raw solver engine status.
+	// SolverStatus is the solverStatus field as sent: the raw engine value
+	// (NOT_SOLVING etc.), which the server sends only during the transition and
+	// older servers sent alone. Use Status for the public status.
 	SolverStatus *string `json:"solverStatus,omitempty"`
 	// Feasible reports whether the returned solution satisfies all hard constraints.
 	Feasible *bool `json:"feasible,omitempty"`
@@ -260,6 +262,9 @@ type ProfessionalServicesResultResponse struct {
 	UnassignedTasks []string `json:"unassignedTasks,omitempty"`
 	// AssignedTasks are the ids of tasks the solver successfully assigned.
 	AssignedTasks []string `json:"assignedTasks,omitempty"`
+
+	// status is the public status field as sent; read through Status.
+	status *string
 }
 
 // UnmarshalJSON decodes the response, routing the score field through
@@ -268,7 +273,8 @@ type ProfessionalServicesResultResponse struct {
 func (r *ProfessionalServicesResultResponse) UnmarshalJSON(data []byte) error {
 	type alias ProfessionalServicesResultResponse
 	aux := &struct {
-		Score json.RawMessage `json:"score"`
+		Score  json.RawMessage `json:"score"`
+		Status *string         `json:"status"`
 		*alias
 	}{alias: (*alias)(r)}
 	if err := json.Unmarshal(data, aux); err != nil {
@@ -279,5 +285,20 @@ func (r *ProfessionalServicesResultResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	r.Score = score
+	r.status = aux.Status
 	return nil
+}
+
+// Status returns the public solver status: the wire's status field when present,
+// otherwise SolverStatus mapped from its legacy engine value. A missing or
+// unrecognized value gives the zero value.
+func (r *ProfessionalServicesResultResponse) Status() solver.SolverStatus {
+	if r == nil {
+		return ""
+	}
+	status, ok := solver.ResolveSolverStatus(r.status, r.SolverStatus)
+	if !ok {
+		return ""
+	}
+	return status
 }

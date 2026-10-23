@@ -104,7 +104,7 @@ if result.Score != nil {
 }
 ```
 
-`scoreString` no longer exists on the Shift and Professional Services result responses — use the typed `Score` instead.
+`scoreString` no longer exists on the Shift and Professional Services result responses; use the typed `Score` instead.
 
 ## Shift results
 
@@ -125,7 +125,9 @@ fmt.Printf("%d shift(s) could not be filled\n", len(result.UnassignedShifts))
 
 The wait methods take `pollIntervalMs, maxAttempts` (both `int`). When `pollIntervalMs <= 0` it defaults to `5000`, and when `maxAttempts <= 0` it defaults to `150`, so the default budget is 5 s x 150 = 12.5 minutes. That leaves headroom over the server's 10-minute cap on a single solve. `WaitForCompletion` waits one interval before its first status check.
 
-A job counts as finished when the status reports `solving: false` and `solverStatus` is `NOT_SOLVING`, the same rule the server uses. A score is not required.
+A job counts as finished when the status reports `solving: false` and `status` is `completed` (`SolverStatusCompleted`), the same rule the server uses. A score is not required.
+
+`SolverStatus` takes the public values `queued`, `solving`, `stopping` and `completed` (`SolverStatusQueued`, `SolverStatusSolving`, `SolverStatusStopping`, `SolverStatusCompleted`). `SolverStatusResponse.SolverStatus` is read from the wire's `status` field; against an older server that sends only `solverStatus`, its raw engine values (`SOLVING_SCHEDULED`, `SOLVING_ACTIVE`, `TERMINATING_EARLY`, `NOT_SOLVING`) are mapped to these. The 0.34 constant names (`SolverStatusNotSolving` etc.) remain as deprecated aliases. The Professional Services result keeps `SolverStatus` as the raw `solverStatus` string; call `Status()` for the typed public value.
 
 ## Configuration
 

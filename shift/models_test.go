@@ -15,6 +15,10 @@ func intPtr(i int) *int {
 	return &i
 }
 
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 func float64Ptr(f float64) *float64 {
 	return &f
 }
@@ -436,7 +440,8 @@ func TestShiftResultResponseEchoesRequestFields(t *testing.T) {
 		"hook": "https://example.com/webhook",
 		"constraintWeightOverrides": {"shiftOffRequest": "0hard/0medium/4soft"},
 		"feasible": true,
-		"score": {"hardScore": 0, "mediumScore": 0, "softScore": -120, "solutionInitialized": true},
+		"score": "0hard/0medium/-120soft",
+		"solutionInitialized": true,
 		"assignedShifts": [
 			{"name": "Morning", "from": "2024-01-15T06:00:00", "to": "2024-01-15T14:00:00", "pinnedByUser": false, "assignedEmployee": "alice"}
 		],
@@ -487,7 +492,52 @@ func TestShiftResultResponseEchoesRequestFields(t *testing.T) {
 	if result.Feasible == nil || !*result.Feasible {
 		t.Errorf("expected feasible true")
 	}
+	if result.Score == nil || result.Score.Soft != -120 {
+		t.Errorf("expected soft -120, got %+v", result.Score)
+	}
 	if len(result.AssignedShifts) != 1 || *result.AssignedShifts[0].AssignedEmployee != "alice" {
 		t.Errorf("expected 1 assigned shift worked by alice, got %+v", result.AssignedShifts)
+	}
+}
+
+func TestShiftResultSolutionInitialized(t *testing.T) {
+	cases := []struct {
+		name string
+		json string
+		want *bool
+	}{
+		{"present true", `{"solutionInitialized": true}`, boolPtr(true)},
+		{"present false", `{"solutionInitialized": false}`, boolPtr(false)},
+		{"absent", `{}`, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var result ShiftResultResponse
+			if err := json.Unmarshal([]byte(tc.json), &result); err != nil {
+				t.Fatalf("failed to unmarshal: %v", err)
+			}
+			switch {
+			case tc.want == nil && result.SolutionInitialized != nil:
+				t.Errorf("expected nil, got %v", *result.SolutionInitialized)
+			case tc.want != nil && (result.SolutionInitialized == nil || *result.SolutionInitialized != *tc.want):
+				t.Errorf("expected %v, got %v", *tc.want, result.SolutionInitialized)
+			}
+		})
+	}
+}
+
+func TestShiftRequestDecodedFromResultDoesNotSendSolutionInitialized(t *testing.T) {
+	// The server's Shift request rejects unknown members, so a result body reused as
+	// a request must not carry solutionInitialized back.
+	var request ShiftRequest
+	if err := json.Unmarshal([]byte(`{"name": "Week", "solutionInitialized": true}`), &request); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	data, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+	if strings.Contains(string(data), "solutionInitialized") {
+		t.Errorf("request must not carry solutionInitialized, got %s", data)
 	}
 }

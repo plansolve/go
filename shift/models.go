@@ -240,6 +240,10 @@ type ShiftResultResponse struct {
 	// Score is the optimization score from the solver. nil until the solver
 	// has scored the solution.
 	Score *solver.Score `json:"score,omitempty"`
+	// SolutionInitialized is false when the time limit stopped the solver before it
+	// considered every shift: the plan is partial and a longer spent limit may staff
+	// more shifts. nil when the server did not send it.
+	SolutionInitialized *bool `json:"solutionInitialized,omitempty"`
 	// UnassignedShifts are the shift positions the solver could not staff; their
 	// AssignedEmployee is nil.
 	UnassignedShifts []ShiftAssignment `json:"unassignedShifts,omitempty"`

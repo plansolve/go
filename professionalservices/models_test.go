@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/plansolve/go/solver"
 )
 
 func strPtr(s string) *string {
@@ -100,9 +102,10 @@ func TestCanDeserializeResultResponse(t *testing.T) {
 				"requiredSkills": ["C#", "JavaScript"]
 			}
 		],
+		"status": "completed",
 		"solverStatus": "NOT_SOLVING",
 		"feasible": true,
-		"score": {"hardScore": 0, "mediumScore": 0, "softScore": -10, "solutionInitialized": true},
+		"score": "0hard/0medium/-10soft",
 		"assignedTasks": ["task1"],
 		"unassignedTasks": []
 	}`
@@ -126,6 +129,12 @@ func TestCanDeserializeResultResponse(t *testing.T) {
 	}
 	if result.Feasible == nil || !*result.Feasible {
 		t.Errorf("expected feasible to be true")
+	}
+	if result.SolverStatus == nil || *result.SolverStatus != "NOT_SOLVING" {
+		t.Errorf("expected raw solverStatus 'NOT_SOLVING', got %v", result.SolverStatus)
+	}
+	if result.Status() != solver.SolverStatusCompleted {
+		t.Errorf("expected status 'completed', got %q", result.Status())
 	}
 	if result.Score == nil || result.Score.Soft != -10 {
 		t.Errorf("expected soft -10, got %+v", result.Score)
@@ -704,5 +713,37 @@ func TestTaskWithoutPriorityOmitsIt(t *testing.T) {
 	}
 	if strings.Contains(string(data), `"priority"`) {
 		t.Errorf("expected no priority property, got %s", data)
+	}
+}
+
+func TestResultStatusMapsPublicLegacyAndMissingValues(t *testing.T) {
+	cases := []struct {
+		name string
+		json string
+		want solver.SolverStatus
+	}{
+		{"both, status wins", `{"status": "solving", "solverStatus": "NOT_SOLVING"}`, solver.SolverStatusSolving},
+		{"only status", `{"status": "stopping"}`, solver.SolverStatusStopping},
+		{"only legacy solverStatus", `{"solverStatus": "NOT_SOLVING"}`, solver.SolverStatusCompleted},
+		{"neither", `{}`, ""},
+		{"unknown status", `{"status": "something_new", "solverStatus": "NOT_SOLVING"}`, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var result ProfessionalServicesResultResponse
+			if err := json.Unmarshal([]byte(tc.json), &result); err != nil {
+				t.Fatalf("failed to unmarshal: %v", err)
+			}
+			if got := result.Status(); got != tc.want {
+				t.Errorf("expected %q, got %q", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestResultStatusOnNilResponse(t *testing.T) {
+	var result *ProfessionalServicesResultResponse
+	if got := result.Status(); got != "" {
+		t.Errorf("expected zero value, got %q", got)
 	}
 }

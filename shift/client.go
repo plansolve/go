@@ -260,7 +260,7 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 }
 
 // isStillSolving mirrors the server's completion rule (SolverStatusResponse.IsComplete):
-// a job is done when solving is false and solverStatus is NOT_SOLVING. No score is required.
+// a job is done when solving is false and solverStatus is completed. No score is required.
 func isStillSolving(status *solver.SolverStatusResponse) bool {
-	return status.Solving || status.SolverStatus != solver.SolverStatusNotSolving
+	return status.Solving || status.SolverStatus != solver.SolverStatusCompleted
 }
