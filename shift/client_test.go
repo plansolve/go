@@ -7,7 +7,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/plansolve/go/internal/retry"
 	"github.com/plansolve/go/solver"
 )
 
@@ -205,5 +207,86 @@ func TestStopReturnsJobCancelledErrorForQueuedJob(t *testing.T) {
 	}
 	if cancelled.JobID != "job-queued" || cancelled.Message != "Stopped before solving started; no plan was produced." {
 		t.Errorf("unexpected cancelled error: %+v", cancelled)
+	}
+}
+
+func TestWaitForCompletionRetriesTransientPollFailures(t *testing.T) {
+	saved := retry.Backoff
+	retry.Backoff = func(int) time.Duration { return 0 }
+	defer func() { retry.Backoff = saved }()
+
+	cases := []struct {
+		name string
+		fail func(w http.ResponseWriter)
+	}{
+		{"503", func(w http.ResponseWriter) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("<html><body>Service Unavailable</body></html>"))
+		}},
+		{"429 with Retry-After", func(w http.ResponseWriter) {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error": "Too many requests"}`))
+		}},
+		{"dropped connection", func(w http.ResponseWriter) {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err == nil {
+				_ = conn.Close()
+			}
+		}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			statusCalls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, "/status") {
+					statusCalls++
+					if statusCalls == 1 {
+						c.fail(w)
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(`{"jobId": "job-r", "status": "completed", "solving": false}`))
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id": "roster-1", "feasible": true}`))
+			}))
+			defer server.Close()
+
+			client := NewClient(&http.Client{}, server.URL, "test-key")
+
+			result, err := client.WaitForCompletion(context.Background(), "job-r", 1, 1)
+			if err != nil {
+				t.Fatalf("WaitForCompletion failed: %v", err)
+			}
+			if result.JobID == nil || *result.JobID != "job-r" {
+				t.Errorf("expected the result of job-r")
+			}
+			if statusCalls != 2 {
+				t.Errorf("expected 2 status calls, got %d", statusCalls)
+			}
+		})
+	}
+}
+
+func TestWaitForCompletionDoesNotRetryPermanentErrors(t *testing.T) {
+	statusCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		statusCalls++
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"error": "Solver failed"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.Client(), server.URL, "test-key")
+
+	_, err := client.WaitForCompletion(context.Background(), "job-f", 1, 3)
+	if err == nil || !strings.Contains(err.Error(), "API error: status 422: Solver failed") {
+		t.Fatalf("expected the 422 error, got %v", err)
+	}
+	if statusCalls != 1 {
+		t.Errorf("expected 1 status call, got %d", statusCalls)
 	}
 }

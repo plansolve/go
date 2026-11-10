@@ -123,7 +123,7 @@ fmt.Printf("%d shift(s) could not be filled\n", len(result.UnassignedShifts))
 
 ## Polling
 
-The wait methods take `pollIntervalMs, maxAttempts` (both `int`). When `pollIntervalMs <= 0` it defaults to `5000`, and when `maxAttempts <= 0` it defaults to `150`, so the default budget is 5 s x 150 = 12.5 minutes. That leaves headroom over the server's 10-minute cap on a single solve. `WaitForCompletion` waits one interval before its first status check.
+The wait methods take `pollIntervalMs, maxAttempts` (both `int`). When `pollIntervalMs <= 0` it defaults to `5000`, and when `maxAttempts <= 0` it defaults to `150`, so the default budget is 5 s x 150 = 12.5 minutes. That leaves headroom over the server's 10-minute cap on a single solve. `WaitForCompletion` waits one interval before its first status check. Status polls during the wait, and the final result fetch, are retried on transient failures only (a connection error, or a 408, 409, 429 or 5xx answer), up to 3 times with 2, 4 and 8 second backoff, or the delay a `Retry-After` header asks for (at most 60 seconds). Any other error, such as 401, 404 or 422, a request timeout or a cancelled `ctx`, is returned at once.
 
 A job counts as finished when the status reports `solving: false` and `status` is `completed` (`SolverStatusCompleted`), the same rule the server uses. A score is not required.
 

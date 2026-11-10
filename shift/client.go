@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/plansolve/go/internal/retry"
 	"github.com/plansolve/go/solver"
 )
 
@@ -56,7 +57,7 @@ func (c *Client) Start(ctx context.Context, request ShiftRequest) (*ShiftStartRe
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
+		return nil, retry.NewStatusError(resp, solver.ExtractErrorMessage(respBody))
 	}
 
 	var result ShiftStartResponse
@@ -87,7 +88,7 @@ func (c *Client) GetStatus(ctx context.Context, jobID string) (*solver.SolverSta
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
+		return nil, retry.NewStatusError(resp, solver.ExtractErrorMessage(respBody))
 	}
 
 	var result solver.SolverStatusResponse
@@ -119,7 +120,7 @@ func (c *Client) GetResult(ctx context.Context, jobID string) (*ShiftResultRespo
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
+		return nil, retry.NewStatusError(resp, solver.ExtractErrorMessage(respBody))
 	}
 
 	var result ShiftResultResponse
@@ -154,7 +155,7 @@ func (c *Client) Analyze(ctx context.Context, jobID string) (*solver.ScoreAnalys
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
+		return nil, retry.NewStatusError(resp, solver.ExtractErrorMessage(respBody))
 	}
 
 	var result solver.ScoreAnalysisResponse
@@ -187,7 +188,7 @@ func (c *Client) Stop(ctx context.Context, jobID string) (*ShiftResultResponse, 
 
 	respBody, err := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API error: status %d: %s", resp.StatusCode, solver.ExtractErrorMessage(respBody))
+		return nil, retry.NewStatusError(resp, solver.ExtractErrorMessage(respBody))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
@@ -223,6 +224,9 @@ func (c *Client) StartAndWaitForCompletion(ctx context.Context, request ShiftReq
 }
 
 // WaitForCompletion polls for job status until the solver finishes or max attempts is reached.
+// A poll or result fetch that fails with a 5xx, 408, 409 or 429 response or a
+// connection error is retried up to three times, honoring Retry-After, before
+// the error is returned.
 func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollIntervalMs int, maxAttempts int) (*ShiftResultResponse, error) {
 	if jobID == "" {
 		return nil, fmt.Errorf("jobId was not provided")
@@ -244,7 +248,7 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 		case <-time.After(pollInterval):
 		}
 
-		status, err := c.GetStatus(ctx, jobID)
+		status, err := retry.Do(ctx, func() (*solver.SolverStatusResponse, error) { return c.GetStatus(ctx, jobID) })
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +258,7 @@ func (c *Client) WaitForCompletion(ctx context.Context, jobID string, pollInterv
 			if isStillSolving(status) {
 				return nil, fmt.Errorf("solver still running after %d polls; raise maxAttempts or lower options.spentLimit", attempts)
 			}
-			return c.GetResult(ctx, jobID)
+			return retry.Do(ctx, func() (*ShiftResultResponse, error) { return c.GetResult(ctx, jobID) })
 		}
 	}
 }
